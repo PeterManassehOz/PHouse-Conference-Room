@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 // 1) Yup schema
 const schema = yup
@@ -26,6 +27,7 @@ const schema = yup
 
 const JoinMeeting = () => {
   const navigate = useNavigate();
+   const darkMode       = useSelector(s => s.theme.darkMode);
 
   const {
     register,
@@ -48,30 +50,21 @@ const JoinMeeting = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12 p-6 bg-white rounded-lg shadow-md">
-      <h2 className="text-2xl font-semibold text-center mb-6">Join a Meeting</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
+    <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-black"}`}>
+      <form onSubmit={handleSubmit(onSubmit)}  className={`w-full max-w-md p-8 shadow-md rounded-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
+         <h2 className={`text-2xl font-semibold text-center mb-6 ${darkMode ? "text-white" : "text-black" }`}>Join a Meeting</h2>
           <input
             type="text"
             placeholder="Paste meeting link or ID"
             {...register('meetingInput')}
-            className={`
-              w-full
-              p-3
-              border
-              ${errors.meetingInput ? 'border-red-500' : 'border-gray-300'}
-              rounded-md
-              focus:outline-none
-              focus:ring-2 focus:ring-offset-2 focus:ring-blue-200
-            `}
+            className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
           />
           {errors.meetingInput && (
             <p className="text-red-500 text-sm mt-1">
               {errors.meetingInput.message}
             </p>
           )}
-        </div>
+        
 
         <button
           type="submit"

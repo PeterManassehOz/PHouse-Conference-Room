@@ -1,11 +1,11 @@
-import { Link, /*useNavigate*/ } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-//import { toast } from 'react-toastify'
+import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import Spinner from '../../components/Spinner/Spinner'
-//import { useLoginUserMutation } from '../../redux/userAuthApi/userAuthApi'
+import { useLoginUserMutation } from '../../redux/userAuthApi/userAuthApi'
 
 const schema = yup.object().shape({
   phcode: yup.string().required("PH code is required"),
@@ -20,37 +20,31 @@ const Login = () => {
   
   const darkMode = useSelector((state) => state.theme.darkMode);
   
-  //const [loginUser, { isLoading }] = useLoginUserMutation();
-  const isLoading = false; // Replace this with the actual isLoading from your API
-
+  const [loginUser, { isLoading }] = useLoginUserMutation();
   
-  //const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const onSubmit = async (data) => {
-      /* try {
-      // 1) Call the RTK query
-   const {
-        token,
-        user,
-        email: returnedEmail,
-      } = await loginUser(data).unwrap();
-  
-      // 2) If we got a token back, we’re fully authenticated
-      if (token) {
-        localStorage.setItem('token', token);
-        // save phcode for future calls
-        localStorage.setItem('phcode', data.phcode);
-        
-        return user.profileCompleted
-          ? navigate('/')             // everything’s done
-          : navigate('/user-dashboard'); // complete profile
+       try {
+      const response = await loginUser(data).unwrap();
+
+        if (response.token) {
+          localStorage.setItem('token', response.token);
+        }
+
+        if (response.user && response.user._id) {
+          localStorage.setItem('userId', response.user._id);  // Assuming `id` is the field you need
+        }
+
+      if (!response.user.profileCompleted) {
+          navigate('/', { state: { showDashboard: true, showProfile: true } });
+      } else {
+        navigate('/');
       }
-      
-      navigate('/');
-    } catch (err) {
-      console.error(err);
-      toast.error(err?.data?.message || 'Login failed');
-    }*/
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.data?.message || "Login failed");
+    }
        console.log(data);
     };
   
