@@ -2,10 +2,11 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { toast } from 'react-toastify';
-//import { useResetPasswordWithTokenMutation } from '../../redux/userAuthApi/userAuthApi';
+import { useResetPasswordWithTokenMutation } from '../../redux/userAuthApi/userAuthApi';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { useSelector } from 'react-redux';
+import Spinner from '../Spinner/Spinner';
 
 const TokenResetPassword = () => {
   const schema = yup.object().shape({
@@ -25,7 +26,7 @@ const TokenResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  //const [resetPasswordWithToken] = useResetPasswordWithTokenMutation();
+  const [resetPasswordWithToken] = useResetPasswordWithTokenMutation();
 
   const onSubmit = async () => {
     if (password !== confirmPassword) {
@@ -34,18 +35,18 @@ const TokenResetPassword = () => {
     }
 
     if (!token) {
-      //toast.error(response.error?.data?.message || response.error?.error || "Invalid or missing token!");
+      toast.error(response.error?.data?.message || response.error?.error || "Invalid or missing token!");
       return;
     }
 
-    //const response = await resetPasswordWithToken({ token, password, confirmPassword });
+    const response = await resetPasswordWithToken({ token, password, confirmPassword });
 
-   // if ("error" in response) {
-   //   toast.error(response.error.data?.message || "Something went wrong!");
-   // } else {
-    //  toast.success(response.data.message || "Password reset successful!");
+    if ("error" in response) {
+     toast.error(response.error.data?.message || "Something went wrong!");
+   } else {
+      toast.success(response.data.message || "Password reset successful!");
       navigate("/login");
-   // }
+   }
   };
 
 
@@ -76,7 +77,7 @@ const TokenResetPassword = () => {
         {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
 
         <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer" type="submit" disabled={isLoading}>
-           {isLoading ? "Resetting..." : "Reset Password"}
+           {isLoading ? <Spinner /> : "Reset Password"}
         </button>
       </form>
     </div>

@@ -1,6 +1,6 @@
 // Home.jsx
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 // Icons
@@ -10,10 +10,9 @@ import {
   MdVideoCall,
   MdHistory,
   MdEventAvailable,
-  MdEmergencyRecording,
 } from "react-icons/md";
 import { AiOutlineCalendar } from "react-icons/ai";
-import { FiPhoneIncoming, FiSettings } from "react-icons/fi";
+import { FiPhoneIncoming, FiSettings } from "react-icons/fi";import { PiRecordFill } from 'react-icons/pi';
 
 import LivingSeed from "/LSeed-Logo-1.png";
 
@@ -35,7 +34,7 @@ const menuItems = [
   { key: "schedule-meeting", label: "Schedule Meeting", icon: <AiOutlineCalendar /> },
   { key: "previous-meetings", label: "Previous Meetings", icon: <MdHistory /> },
   { key: "upcoming-meetings", label: "Upcoming Meetings", icon: <MdEventAvailable /> },
-  { key: "recorded-meetings", label: "Upcoming Meetings", icon: <MdEmergencyRecording /> },
+  { key: "recorded-meetings", label: "Recorded Meetings", icon: <PiRecordFill /> },
   { key: "settings", label: "Settings", icon: <FiSettings /> },
 ];
 
@@ -43,6 +42,15 @@ const Home = () => {
   const darkMode = useSelector((s) => s.theme.darkMode);
   const navigate = useNavigate();
   const [selected, setSelected] = useState(null);
+  const location = useLocation();
+
+  
+  // Auto-select Dashboard > Profile if redirected from email verification
+  useEffect(() => {
+    if (location.state?.showDashboard && location.state?.showProfile) {
+      setSelected("dashboard"); // Show Dashboard
+    }
+  }, [location.state]);
 
   const goBack = () => setSelected(null);
   const logOut = () => {
@@ -59,7 +67,7 @@ const Home = () => {
 
   return (
     <div className={`h-screen flex overflow-hidden ${
-      darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"
+      darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-black"
     }`}>
       {/* SIDEBAR */}
       <aside
@@ -132,7 +140,7 @@ const Home = () => {
       <main
         className={`
           flex-1 transition-all duration-300 overflow-auto
-          ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}
+          ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-black"}
           ${selected ? "block" : "hidden md:block"}
           md:ml-28           /* push content right by sidebar width */
         `}

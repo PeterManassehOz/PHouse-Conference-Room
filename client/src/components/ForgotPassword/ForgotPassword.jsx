@@ -1,9 +1,10 @@
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-//import { useForgotPasswordMutation } from '../../redux/userAuthApi/userAuthApi';
-//import { toast } from 'react-toastify';
+import { useForgotPasswordMutation } from '../../redux/userAuthApi/userAuthApi';
+import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
+import Spinner from '../Spinner/Spinner';
 
 const ForgotPassword = () => {
   const schema = yup.object().shape({
@@ -16,20 +17,20 @@ const ForgotPassword = () => {
 
   const { register, handleSubmit, formState: { errors }, isLoading } = useForm({ resolver: yupResolver(schema) });
 
-  //const [forgotPassword] = useForgotPasswordMutation(); // ✅ Call the hook correctly
+  const [forgotPassword] = useForgotPasswordMutation(); // ✅ Call the hook correctly
 
-  const onSubmit = async (/*data*/) => {
-   // try {
-     // const response = await forgotPassword({ email: data.email });
+  const onSubmit = async (data) => {
+   try {
+      const response = await forgotPassword({ email: data.email });
 
-     // if ("error" in response) {
-     //   toast.error(response.error?.data?.message || response.error?.error || "Something went wrong!");
-     // } else {
-     //   toast.success(response.data.message || "Check your email for a reset link!");
-   //   }
-   // } catch (error) {
-    //  console.error("Forgot password error:", error);
- //   }
+      if ("error" in response) {
+        toast.error(response.error?.data?.message || response.error?.error || "Something went wrong!");
+      } else {
+        toast.success(response.data.message || "Check your email for a reset link!");
+     }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+   }
   };
 
   return (
@@ -53,7 +54,7 @@ const ForgotPassword = () => {
           type="submit" 
           disabled={isLoading}
         >
-          {isLoading ? "Sending..." : "Send Reset Link"}
+          {isLoading ? <Spinner /> : "Send Reset Link"}
         </button>
       </form>
     </div>

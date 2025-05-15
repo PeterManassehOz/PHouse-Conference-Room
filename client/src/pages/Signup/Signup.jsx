@@ -2,9 +2,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-//import { useRegisterUserMutation } from '../../redux/userAuthApi/userAuthApi';
+import { useRegisterUserMutation } from '../../redux/userAuthApi/userAuthApi';
 import { toast } from 'react-toastify';
 import { useSelector } from 'react-redux';
+import Spinner from '../../components/Spinner/Spinner';
 
 const Signup = () => {
   const schema = yup.object().shape({
@@ -12,7 +13,6 @@ const Signup = () => {
     lastname: yup.string().required('Last name is required'),
     email: yup.string().email('Invalid email').required('Email is required'),
     phcode: yup.string().required('PH code is required'),
-    state: yup.string().required('State is required'),
     password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
     confirmPassword: yup.string().oneOf([yup.ref('password'), null], 'Passwords must match').required('Confirm password is required'),
     terms: yup.boolean().oneOf([true], 'You must agree to the terms and conditions'),
@@ -23,7 +23,7 @@ const Signup = () => {
   
   const darkMode = useSelector((state) => state.theme.darkMode);
   
-  //const [registerUser, { isLoading }] = useRegisterUserMutation();
+  const [registerUser, { isLoading }] = useRegisterUserMutation();
   const navigate = useNavigate();
 
 
@@ -31,14 +31,17 @@ const Signup = () => {
   
 
     try {
- //     const response = await registerUser().unwrap();
- //     localStorage.setItem('token', response.token);
+      const response = await registerUser(data).unwrap();
+      localStorage.setItem('token', response.token);
       localStorage.setItem('phcode', data.phcode);
       localStorage.setItem('email', data.email);
       console.log(data);
+      if (response.user && response.user._id) {
+        localStorage.setItem('userId', response.user._id);  // Assuming `id` is the field you need
+      }
       
-      toast.success('Signup successful! Now choose how to verify.');
-      navigate('/choose-verification');
+      toast.success('Signup successful! Please verify your email.');
+      navigate('/verify-email');
     } catch (error) {
       console.error(error);
       toast.error(error?.data?.message || "Registration failed");
@@ -85,13 +88,6 @@ const Signup = () => {
         />
         {errors.phcode && <p className="text-red-500 text-sm">{errors.phcode.message}</p>}
 
-        <input 
-          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
-          type="text" 
-          placeholder="State" 
-          {...register("state")} 
-        />
-        {errors.phcode && <p className="text-red-500 text-sm">{errors.state.message}</p>}
 
         <input 
           className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
@@ -121,8 +117,7 @@ const Signup = () => {
           className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer" 
           type="submit"
         >
-         {/* {isLoading ? <Spinner /> : 'Sign Up'} */}
-          Sign Up
+         {isLoading ? <Spinner /> : 'Sign Up'}
         </button>
 
         <div className={`text-center mt-4 ${darkMode ? "text-white" : "text-gray-600" }`}>

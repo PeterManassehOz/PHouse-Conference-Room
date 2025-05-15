@@ -1,19 +1,25 @@
-// src/components/StartMeeting/StartMeeting.jsx
 import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const StartMeeting = () => {
-  const [meetingId, setMeetingId]       = useState('');
-  const [meetingLink, setMeetingLink]   = useState('');
+  const [meetingId, setMeetingId] = useState('');
+  const [meetingLink, setMeetingLink] = useState('');
   const navigate = useNavigate();
+  const darkMode = useSelector((state) => state.theme.darkMode);
 
   const handleStart = () => {
-    // 1. Generate a unique ID
-    const id   = uuidv4();
-    const link = `${window.location.origin}/room/${id}`;
+    const id = uuidv4();
+    const hostId = uuidv4();
 
-    // 2. Set both in state (so the UI appears)
+
+    
+    // 2) Persist the hostId in localStorage so this browser “remembers” it
+    localStorage.setItem('hostId', hostId);
+
+    // 3) Append hostId as a query param on the URL
+    const link = `${window.location.origin}/room/${id}?`;
     setMeetingId(id);
     setMeetingLink(link);
   };
@@ -28,48 +34,47 @@ const StartMeeting = () => {
   };
 
   return (
-    <div style={{ maxWidth: 400, margin: '2rem auto', textAlign: 'center' }}>
+    <div className={`w-full max-w-md mx-auto p-6 mt-10 rounded-lg shadow-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}`}>
       {/* Step 1: Generate */}
-      {!meetingLink && (
+      {!meetingLink ? (
         <button
           onClick={handleStart}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="w-full bg-[#00013d] text-white py-3 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"
         >
           Start New Meeting
         </button>
-      )}
+      ) : (
+        <div className="space-y-4">
+          {/* Meeting Link Display */}
+          <div>
+            <p className="font-semibold text-lg">Your meeting link:</p>
+            <input
+              type="text"
+              readOnly
+              value={meetingLink}
+              className="w-full mt-2 p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+              onFocus={(e) => e.target.select()}
+            />
+          </div>
 
-      {/* Step 2: Show link, copy & join */}
-      {meetingLink && (
-        <div style={{ marginTop: '1.5rem', wordBreak: 'break-all' }}>
-          <p><strong>Your meeting link:</strong></p>
-          <input
-            type="text"
-            readOnly
-            value={meetingLink}
-            style={{ width: '100%', padding: '0.5rem' }}
-            onFocus={e => e.target.select()}
-          />
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+          {/* Action Buttons */}
+          <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
             <button
               onClick={handleCopy}
-              style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}
+              className="flex-1 bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-500 transition duration-200 cursor-pointer"
             >
               Copy Link
             </button>
             <button
               onClick={handleJoin}
-              style={{ padding: '0.5rem 1rem', cursor: 'pointer' }}
+              className="flex-1 bg-[#00013d] text-white py-2 px-4 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"
             >
               Start Meeting
             </button>
           </div>
-          <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+
+          {/* Instructions */}
+          <p className="text-sm text-gray-500 mt-3">
             Share this link with anyone you want to invite.
           </p>
         </div>

@@ -1,13 +1,28 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { AiOutlineClose } from "react-icons/ai";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { useUpdateProfileMutation, useGetUserProfileQuery } from "../../redux/profileAuthApi/profileAuthApi";
+import Spinner from "../Spinner/Spinner";
+
+
 
 const Profile = () => {
   // Dark Mode from Redux
   const darkMode = useSelector((state) => state.theme.darkMode);
+
+  const [updateProfile, { isLoading }] = useUpdateProfileMutation();
+   const { data: userProfile, isLoading: profileLoading, error } = useGetUserProfileQuery();
+
+     useEffect(() => {
+    if (userProfile) {
+      console.log('User Profile Data:', userProfile); // Log the full response here
+      console.log('Image URL:', userProfile?.image);   // Log just the image URL if available
+    }
+  }, [userProfile]);
 
   // Sample Data (Replace with your data fetching logic)
   const previousMeetings = ["Meeting 1", "Meeting 2", "Meeting 3"];
@@ -16,7 +31,7 @@ const Profile = () => {
 
   // Validation Schema
   const schema = yup.object().shape({
-    name: yup.string().required("Name is required"),
+    username: yup.string().required("Username is required"),
     phone: yup.string().required("Phone is required"),
     bio: yup.string().max(250, "Bio cannot exceed 250 characters"),
     image: yup
@@ -37,15 +52,12 @@ const Profile = () => {
     formState: { errors },
     setValue,
     reset,
-    getValues,
   } = useForm({
     resolver: yupResolver(schema),
   });
 
   const [imagePreview, setImagePreview] = useState(null);
   const imageRef = useRef();
-
-  const isLoading = false; // Replace with actual loading state if needed
 
   // Image Preview Handler
   const handleImageChange = (event) => {
@@ -66,17 +78,45 @@ const Profile = () => {
   };
 
   // Form Submission
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
+    const formData = new FormData();
+    formData.append("username", data.username);
+    formData.append("phone", data.phone);
+    formData.append("bio", data.bio);
+    if (data.image && data.image.length > 0) {
+      formData.append('image', data.image[0]) 
+    }
+  
+    console.log("Form Data:", formData);
+      
+    try {
+      const response = await updateProfile(formData).unwrap()
+      if (response.token) {
+        localStorage.setItem('token', response.token);
+      }
+      console.log('Token:', response.token);
+      console.log("Profile Data:", data)      
+      console.log("Profile Updated:", response)
 
-    
-    reset()  
-    setImagePreview(null)
-    console.log("Form Submitted:", data);
-  };
+      reset()  
+      setImagePreview(null)
+      toast.success('Profile updated successfully')
+
+    } catch (error) {
+      console.error("Update Error:", error)
+      toast.error(error?.data?.message || 'Profile update failed')
+    }
+
+  }
+
+  
+  if (profileLoading) return <div>Loading profile...</div>;
+  if (error) return <div>Error loading profile.</div>;
+
 
   return (
 <div
-className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"}`}
+className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-gray-900"}`}
 >
 <div className="flex flex-col md:flex-row gap-6">
   {/* Profile Form */}
@@ -88,18 +128,18 @@ className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-
       <div>
         <input
           type="text"
-          placeholder="Name"
-          {...register("name")}
-          className={`w-full p-3 mb-3 rounded-md focus:ring-2 focus:ring-blue-200 ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          placeholder="Username"
+          {...register("username")}
+          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
         />
-        {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
+        {errors.username && <p className="text-red-500 text-sm">{errors.username.message}</p>}
       </div>
       <div>
         <input
           type="text"
           placeholder="Phone"
           {...register("phone")}
-          className={`w-full p-3 mb-3 rounded-md focus:ring-2 focus:ring-blue-200 ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
         />
         {errors.phone && <p className="text-red-500 text-sm">{errors.phone.message}</p>}
       </div>
@@ -107,7 +147,7 @@ className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-
         <textarea
           placeholder="Write your bio"
           {...register("bio")}
-          className={`w-full p-3 mb-3 rounded-md focus:ring-2 focus:ring-blue-200 ${darkMode ? "bg-gray-700 text-white placeholder-gray-400" : "bg-gray-100 text-gray-600 placeholder-gray-400"}`}
+          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
         />
         {errors.bio && <p className="text-red-500 text-sm">{errors.bio.message}</p>}
       </div>
@@ -118,7 +158,7 @@ className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-
         <input type="file" className="hidden" accept=".jpg, .jpeg, .png" ref={imageRef} onChange={handleImageChange} />
       </label>
       {errors.image && <p className="text-red-500 text-sm">{errors.image.message}</p>}
-      <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200" type="submit" disabled={isLoading}>
+      <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer" type="submit" disabled={isLoading}>
         {isLoading ? <Spinner /> : "Save"}
       </button>
     </form>
@@ -134,7 +174,7 @@ className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-
         </button>
       </div>
     ) : (
-      <img src="/profileIconBrown.jpeg" alt="Profile" className="w-full h-[600px] object-cover rounded-md shadow-md border-4 border-gray-300" />
+      <img src={userProfile?.image || "./profileIconBrown.jpeg"} alt="Profile" className="w-full h-[600px] object-cover rounded-md shadow-md border-4 border-gray-300" />
     )}
   </div>
 
@@ -142,17 +182,17 @@ className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-
    <div className={`p-4 shadow-md rounded-md w-full md:w-1/4 space-y-4 ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
       <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
         <h3 className="font-semibold">Name:</h3>
-        <p>{getValues("name") || "John Doe"}</p>
+        <p>{userProfile?.username || "John Doe"}</p>
       </div>
 
       <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
         <h3 className="font-semibold">Phone:</h3>
-        <p>{getValues("phone") || "0123456789"}</p>
+        <p>{ userProfile?.phone || "0123456789"}</p>
       </div>
 
       <div className={` ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
         <h3 className="font-semibold">Bio:</h3>
-        <p>{getValues("bio") || "Write something about yourself"}</p>
+        <p>{userProfile?.bio || "Write something about yourself"}</p>
       </div>
   </div>
 </div>

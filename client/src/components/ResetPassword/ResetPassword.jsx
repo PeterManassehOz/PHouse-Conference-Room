@@ -2,10 +2,10 @@ import React from 'react'
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useForm } from 'react-hook-form';
-//import { toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
-//import { useResetUserPasswordMutation } from '../../redux/userAuthApi/userAuthApi';
+import { useResetUserPasswordMutation } from '../../redux/userAuthApi/userAuthApi';
 
 
 
@@ -21,8 +21,8 @@ const ResetPassword = () => {
           .required('Please confirm your password'),
       });
     
-      const { register, handleSubmit, formState: { errors }, setValue, _reset } = useForm({ resolver: yupResolver(schema) });
-     // const [resetPassword, { isLoading }] = useResetUserPasswordMutation();
+      const { register, handleSubmit, formState: { errors }, setValue, reset } = useForm({ resolver: yupResolver(schema) });
+      const [resetPassword, { isLoading },] = useResetUserPasswordMutation();
     
 
       
@@ -38,8 +38,8 @@ const ResetPassword = () => {
         }, [setValue]);
       
     
-      const onSubmit = async (/*data*/) => {
-      /*  try {
+      const onSubmit = async (data) => {
+       try {
           const response = await resetPassword(data).unwrap();
           localStorage.setItem('token', response.token);
           reset();
@@ -47,11 +47,11 @@ const ResetPassword = () => {
         } catch (error) {
           console.error(error);
           toast.error('Password reset failed');
-        } */
+        }
       };
     
       return (
-        <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-black"}`}>
+        <div className={`min-h-screen flex items-center justify-center ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-black"}`}>
          
           <form onSubmit={handleSubmit(onSubmit)}   className={`w-full max-w-md p-8 shadow-md rounded-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
             <h2  className={`text-2xl font-semibold text-center mb-6 ${darkMode ? "text-white" : "text-black" }`}>Reset Password</h2>
@@ -81,9 +81,8 @@ const ResetPassword = () => {
             />
             {errors.confirmPassword && <p className="text-red-500 text-sm">{errors.confirmPassword.message}</p>}
     
-            <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"  type="submit" disabled={/*isLoading*/ false}>
-              {/* {isLoading ? <Spinner /> : 'Sign Up'} */}
-              Reset Password
+            <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"  type="submit" disabled={isLoading}>
+             {isLoading ? <Spinner /> : 'Sign Up'}
             </button>
           </form>
         </div>
