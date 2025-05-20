@@ -52,9 +52,21 @@ export const profileAuthApi = createApi({
         };
       },
     }),
+
+    getUsers: builder.query({
+      query: () => '/users',
+    }),
+
+    deleteUser: builder.mutation({
+      query: () => ({
+        url: '/me',
+        method: 'DELETE'
+      }),
+      invalidatesTags: ['User']
+    })
     }),
   });
   
   
-  export const { useUpdateProfileMutation, useGetUserProfileQuery } = profileAuthApi;
+  export const { useUpdateProfileMutation, useGetUserProfileQuery, useGetUsersQuery, useDeleteUserMutation } = profileAuthApi;
   export default profileAuthApi;

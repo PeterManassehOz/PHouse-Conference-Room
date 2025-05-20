@@ -5,6 +5,7 @@ const videoSchema = new mongoose.Schema({
   driveFileId: { type: String, required: true },
   mimeType:    { type: String, required: true },
   size:        { type: Number, required: true },
+  userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt:   { type: Date,   default: Date.now },
 });
 

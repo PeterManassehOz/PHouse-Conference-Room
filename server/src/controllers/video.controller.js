@@ -38,6 +38,7 @@ const uploadVideo = async (req, res) => {
       driveFileId: driveRes.data.id,
       mimeType: mimetype,
       size,
+      userId: req.user._id,
     });
 
     // clean up tmp file
@@ -54,7 +55,7 @@ const uploadVideo = async (req, res) => {
 // ◾ New: List all recordings’ metadata
 const listVideos = async (req, res) => {
   try {
-    const videos = await Video.find().sort({ createdAt: -1 });
+    const videos = await Video.find({ userId: req.user._id }).sort({ createdAt: -1 });
     res.json(videos);
   } catch (err) {
     console.error(err);
@@ -65,19 +66,15 @@ const listVideos = async (req, res) => {
 // ◾ New: Stream a recording’s binary from Drive
 const streamVideo = async (req, res) => {
   try {
-    const { id } = req.params;
-    const video = await Video.findById(id);
-    if (!video) return res.status(404).json({ error: 'Not found' });
-
-    // tell client what to expect
+    const video = await Video.findById(req.params.id);
+    if (!video || !video.userId.equals(req.user._id)) {
+      return res.status(404).json({ error: 'Not found or access denied' });
+    }
     res.setHeader('Content-Type', video.mimeType);
-
     const driveRes = await drive.files.get(
       { fileId: video.driveFileId, alt: 'media' },
       { responseType: 'stream' }
     );
-
-    // pipe the Drive stream straight to the HTTP response
     driveRes.data.pipe(res);
   } catch (err) {
     console.error(err);

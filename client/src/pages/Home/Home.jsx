@@ -13,7 +13,8 @@ import {
 } from "react-icons/md";
 import { AiOutlineCalendar } from "react-icons/ai";
 import { FiPhoneIncoming, FiSettings } from "react-icons/fi";import { PiRecordFill } from 'react-icons/pi';
-
+import { FcInvite } from "react-icons/fc";
+import { IoIosNotifications } from "react-icons/io";
 import LivingSeed from "/LSeed-Logo-1.png";
 
 // Components
@@ -24,8 +25,16 @@ import JoinMeeting from "../../components/JoinMeeting/JoinMeeting";
 import ScheduleMeeting from "../../components/ScheduleMeeting/ScheduleMeeting";
 import PreviousMeetings from "../../components/PreviousMeetings/PreviousMeetings";
 import UpcomingMeetings from "../../components/UpcomingMeetings/UpcomingMeetings";
-import Settings from "../../components/Settings/Settings";
 import RecordedMeetings from "../../components/RecordedMeetings/RecordedMeetings";
+import Invite from "../../components/Invite/Invite"
+import { useGetInvitesQuery } from "../../redux/meetingApi/meetingApi";
+import Notifications from "../../components/Notifications/Notifications";
+import { useGetNotificationsQuery } from '../../redux/notificationApi/notificationApi';
+
+
+
+
+
 
 const menuItems = [
   { key: "dashboard", label: "Dashboard", icon: <LuLayoutDashboard /> },
@@ -35,7 +44,8 @@ const menuItems = [
   { key: "previous-meetings", label: "Previous Meetings", icon: <MdHistory /> },
   { key: "upcoming-meetings", label: "Upcoming Meetings", icon: <MdEventAvailable /> },
   { key: "recorded-meetings", label: "Recorded Meetings", icon: <PiRecordFill /> },
-  { key: "settings", label: "Settings", icon: <FiSettings /> },
+  { key: "invites", label: "Invitations", icon: <FcInvite /> },
+  { key: "notifications", label: "Notifications", icon: <IoIosNotifications /> },
 ];
 
 const Home = () => {
@@ -44,6 +54,11 @@ const Home = () => {
   const [selected, setSelected] = useState(null);
   const location = useLocation();
 
+  const { data: invites = [], isLoading: invitesLoading } = useGetInvitesQuery();
+  const inviteCount = invites.length;
+  const { data: notifications = [], isLoading: notificationsLoading } = useGetNotificationsQuery();
+  const unreadCount = notifications.length;
+
   
   // Auto-select Dashboard > Profile if redirected from email verification
   useEffect(() => {
@@ -51,6 +66,15 @@ const Home = () => {
       setSelected("dashboard"); // Show Dashboard
     }
   }, [location.state]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const view = params.get("view");
+    if (view) {
+      setSelected(view);
+    }
+  }, [location.search]);
+
 
   const goBack = () => setSelected(null);
   const logOut = () => {
@@ -97,17 +121,44 @@ const Home = () => {
                 key={key}
                 onClick={() => setSelected(key)}
                 title={label}
-                className={`
+                className={`relative 
                   flex items-center gap-3 p-3 rounded-md cursor-pointer
                   transition-colors ${hoverBg}
                   ${selected === key ? activeBg : ""}
-
-                  justify-start      /* left-align on mobile */
-                  md:justify-center  /* center on desktop */
+                  justify-start
+                  md:justify-center
                 `}
               >
                 <span className="text-2xl md:text-3xl">{icon}</span>
                 <span className="ml-1 text-lg md:hidden">{label}</span>
+
+                 {key === 'invites' && !invitesLoading && inviteCount > 0 && (
+                    <span
+                      className="
+                        absolute top-2 right-2
+                        inline-flex items-center justify-center
+                        w-5 h-5 text-xs font-bold
+                        rounded-full
+                        bg-red-500 text-white
+                      "
+                    >
+                      {inviteCount}
+                    </span>
+                  )}
+
+                   {key === 'notifications' && !notificationsLoading && unreadCount > 0 && (
+                    <span
+                      className="
+                        absolute top-2 right-2
+                        inline-flex items-center justify-center
+                        w-5 h-5 text-xs font-bold
+                        rounded-full
+                        bg-red-500 text-white
+                      "
+                    >
+                      {unreadCount}
+                    </span>
+                  )}
               </li>
             ))}
             <li className="flex items-center justify-start md:justify-center p-3 rounded-md transition-colors ${hoverBg}">
@@ -124,9 +175,8 @@ const Home = () => {
           className={`
             flex items-center gap-2 py-3 px-4 rounded-md cursor-pointer
             transition-colors bg-red-600 hover:bg-red-800
-
-            justify-start      /* left-align on mobile */
-            md:justify-center  /* center on desktop */
+            justify-start    
+            md:justify-center 
             w-full
           `}
         >
@@ -169,10 +219,16 @@ const Home = () => {
         {selected === "previous-meetings" && <PreviousMeetings />}
         {selected === "upcoming-meetings" && <UpcomingMeetings />}
         {selected === "recorded-meetings" && <RecordedMeetings />}
-        {selected === "settings" && <Settings />}
+        {selected === "invites" && <Invite />}
+        {selected === "notifications" && <Notifications />}
       </main>
     </div>
   );
 };
 
 export default Home;
+
+
+/*
+, the auto-mute mic/video on join, auto-record, background blur settings, language, time zone, log out elsewhere, calendar integrations to my app
+*/
