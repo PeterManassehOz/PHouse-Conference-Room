@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { IoArrowBack } from "react-icons/io5";
 import { IoIosPerson } from "react-icons/io";
-import { FiSettings } from "react-icons/fi";
-import { AiOutlineMenu, AiOutlineClose } from "react-icons/ai";
+import { TbPasswordUser } from "react-icons/tb";
+import { AiOutlineMenu } from "react-icons/ai";
+import { MdDeleteForever } from "react-icons/md";
 
 // Components
 import Profile from "../../components/Profile/Profile";
 import ResetPassword from "../../components/ResetPassword/ResetPassword";
+import DeleteAccount from "../../components/DeleteAccount/DeleteAccount";
+
+
+
 
 const dashboardItems = [
   { key: "profile", label: "Profile", icon: <IoIosPerson /> },
-  { key: "reset-password", label: "Reset Password", icon: <FiSettings /> },
+  { key: "reset-password", label: "Reset Password", icon: <TbPasswordUser /> },
+  { key: "delete-account",  label: "Delete Account", icon: <MdDeleteForever /> },
 ];
 
 const Dashboard = ({ onBack }) => {
@@ -73,6 +79,7 @@ const Dashboard = ({ onBack }) => {
         {/* Render chosen pane */}
         {selected === "profile" && <Profile />}
         {selected === "reset-password" && <ResetPassword />}
+        {selected === "delete-account" && <DeleteAccount />}
 
         {/* Floating menu icon on mobile */}
         <button

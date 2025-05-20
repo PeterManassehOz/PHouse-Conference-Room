@@ -1,4 +1,3 @@
-// src/pages/Room/Room.jsx
 import React, { useRef, useEffect, useState,  useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -11,6 +10,7 @@ import { FaPersonWalkingDashedLineArrowRight } from "react-icons/fa6";
 import { SlCallEnd } from "react-icons/sl";
 import { FaCopy } from "react-icons/fa";
 import { useUploadVideoMutation } from '../../redux/videosUploadApi/videoUploadApi';
+import { useJoinMeetingMutation } from '../../redux/meetingApi/meetingApi';
 
 
 
@@ -18,13 +18,18 @@ import { useUploadVideoMutation } from '../../redux/videosUploadApi/videoUploadA
 
 const Room = () => {
   const [uploadVideo] = useUploadVideoMutation();
+  const [joinMeeting] = useJoinMeetingMutation();
   const darkMode       = useSelector(s => s.theme.darkMode);
   const { id: roomId } = useParams();
   const navigate       = useNavigate();
   const roomLink       = `${window.location.origin}/room/${roomId}`;
   const linkInputRef = useRef(null);
-
   
+  const hostId = localStorage.getItem('hostId');
+  const meId   = localStorage.getItem('userId');
+  console.log('Host ID:', hostId, 'My ID:', meId);
+  const isHost = meId === hostId;
+
   const copyLinkToClipboard = () => {
     const text = roomLink;
     if (navigator.clipboard && window.isSecureContext) {
@@ -78,19 +83,25 @@ const Room = () => {
   const [isMuted, setIsMuted]                 = useState(false);
   const [isVideoOff, setIsVideoOff]           = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const hostId = localStorage.getItem('hostId');
-  const isHost = Boolean(hostId);
+
+  useEffect(() => {
+  if (!isHost) {
+    joinMeeting(roomId).catch(console.error);
+  }
+  }, [roomId, isHost, joinMeeting]);
 
   const leaveMeeting = useCallback(() => {
     socket.emit('leave-room', roomId);
     Object.values(peerConnections.current).forEach(pc => pc.close());
     localStreamRef.current?.getTracks().forEach(t => t.stop());
+    localStorage.removeItem('hostId');
     navigate('/');
   }, [roomId, navigate]);
 
   const endMeeting = () => {
     socket.emit('end-meeting', roomId);
     leaveMeeting();
+    localStorage.removeItem('hostId');
   };
 
   // Initialize Local Stream without affecting the main stream

@@ -110,8 +110,8 @@ const Profile = () => {
   }
 
   
-  if (profileLoading) return <div>Loading profile...</div>;
-  if (error) return <div>Error loading profile.</div>;
+  if (profileLoading) return <Spinner />;
+  if (error) return <div className="text-red-500 text-center">Error loading profile.</div>;
 
 
   return (

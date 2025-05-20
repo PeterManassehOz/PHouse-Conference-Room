@@ -1,82 +1,82 @@
-import React, { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import socket from '../../utils/socket/socket';
+import { useStartMeetingMutation } from '../../redux/meetingApi/meetingApi';
+import Spinner from '../Spinner/Spinner';
+import { toast } from 'react-toastify'
 
 const StartMeeting = () => {
-  const [meetingId, setMeetingId] = useState('');
-  const [meetingLink, setMeetingLink] = useState('');
-  const navigate = useNavigate();
-  const darkMode = useSelector((state) => state.theme.darkMode);
+  const [id,   setId]   = useState('');
+  const [link, setLink] = useState('');
+  const navigate         = useNavigate();
+  const darkMode         = useSelector(s => s.theme.darkMode);
 
-  const handleStart = () => {
-    const id = uuidv4();
-    const hostId = uuidv4();
+  const [startMeeting, { isLoading }] = useStartMeetingMutation();
 
+  useEffect(() => {
+    socket.connect();
+    return () => { socket.disconnect(); };
+  }, []);
 
-    
-    // 2) Persist the hostId in localStorage so this browser “remembers” it
-    localStorage.setItem('hostId', hostId);
+  const handleStart = async () => {
+    try {
+      const { meetingId, hostId, link, title } = await startMeeting({
+        // optional overrides:
+        title: 'Instant Meeting',
+        description: ''
+      }).unwrap();
 
-    // 3) Append hostId as a query param on the URL
-    const link = `${window.location.origin}/room/${id}?`;
-    setMeetingId(id);
-    setMeetingLink(link);
-  };
+      localStorage.setItem('hostId', hostId);
+      setId(meetingId);
+      setLink(link);
 
-  const handleJoin = () => {
-    navigate(`/room/${meetingId}`);
-  };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(meetingLink);
-    alert('Meeting link copied to clipboard!');
+      socket.emit('meeting-started', {
+        meetingId, hostId, link,
+        message: `Meeting "${title}" has started!`
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to start meeting');
+    }
   };
 
   return (
-    <div className={`w-full max-w-md mx-auto p-6 mt-10 rounded-lg shadow-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-900"}`}>
-      {/* Step 1: Generate */}
-      {!meetingLink ? (
+    <div className={`max-w-md mx-auto p-6 mt-10 rounded-lg shadow
+      ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}`}>
+      {!link ? (
         <button
           onClick={handleStart}
-          className="w-full bg-[#00013d] text-white py-3 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"
+          disabled={isLoading}
+          className="w-full bg-[#00013d] text-white py-3 rounded hover:hover:bg-[#03055B] disabled:opacity-50"
         >
-          Start New Meeting
+          {isLoading ? <Spinner /> : 'Start Meeting Now'}
         </button>
       ) : (
         <div className="space-y-4">
-          {/* Meeting Link Display */}
-          <div>
-            <p className="font-semibold text-lg">Your meeting link:</p>
-            <input
-              type="text"
-              readOnly
-              value={meetingLink}
-              className="w-full mt-2 p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
-              onFocus={(e) => e.target.select()}
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
+          <p className="font-semibold">Your meeting link:</p>
+          <input
+            readOnly value={link}
+            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            onFocus={e => e.target.select()}
+          />
+          <div className="flex gap-4">
             <button
-              onClick={handleCopy}
-              className="flex-1 bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-500 transition duration-200 cursor-pointer"
+              onClick={() => {
+                navigator.clipboard.writeText(link);
+                toast.success('Copied');
+              }}
+              className="flex-1 bg-green-700 text-white py-2 rounded hover:bg-green-900"
             >
               Copy Link
             </button>
             <button
-              onClick={handleJoin}
-              className="flex-1 bg-[#00013d] text-white py-2 px-4 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer"
+              onClick={() => navigate(`/room/${id}`)}
+              className="flex-1 bg-[#00013d] text-white py-2 rounded hover:bg-[#03055B]"
             >
-              Start Meeting
+              Go to Room
             </button>
           </div>
-
-          {/* Instructions */}
-          <p className="text-sm text-gray-500 mt-3">
-            Share this link with anyone you want to invite.
-          </p>
         </div>
       )}
     </div>

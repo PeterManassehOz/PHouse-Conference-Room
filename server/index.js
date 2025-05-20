@@ -8,14 +8,9 @@ const path = require("path");
 const morgan = require('morgan');
 const { createWriteStream } = require('fs');
 const accessLogStream = createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
-const Grid = require('gridfs-stream');
+const http = require('http');
+const { initializeSocket } = require('./socket'); 
 
-
-
-
-
-let gfs;
-module.exports = { app, gfs };
 
 
 
@@ -37,23 +32,19 @@ app.use('/uploads', express.static(path.join(__dirname, 'src/uploads'))); // Ser
 const authRoutes = require('./src/routes/auth.route');
 const userRoutes = require('./src/routes/users.route');
 const videoRoutes = require('./src/routes/video.route');
+const meetingRoutes = require('./src/routes/meeting.route');
+const notificationRoutes = require('./src/routes/notification.route');
 
-app.use(express.json());
+
 app.use('/auth', authRoutes);
 app.use('/users', userRoutes);
 app.use('/recordings', videoRoutes);
+app.use('/meetings', meetingRoutes);
+app.use('/notifications', notificationRoutes);
 
 async function main() {
   await mongoose.connect(process.env.DB_URL);
   console.log('Connected to DB');
-
-
-  const conn = mongoose.connection;
-  conn.once('open', () => {
-  gfs = Grid(conn.db, mongoose.mongo);
-  gfs.collection('recordings');
-  });
-
 
   app.get('/', (req, res) => {
     res.send('PHouse Conference Room server is running!');
@@ -62,6 +53,9 @@ async function main() {
 
 main().then(() => console.log('Connected to DB')).catch(err => console.log(err));
 
-app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+const server = http.createServer(app); 
+initializeSocket(server);
+
+server.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
