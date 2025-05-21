@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
     verificationMethod: { type: String, enum: ['email'], default: 'email' },
     resetToken: { type: String, default: null },
     resetTokenExpires: { type: Date, default: null },
+    emailNotifications: { type: Boolean, default: true },
+    autoMute: { type: Boolean, default: false },
+    autoVideoOff: { type: Boolean, default: false },
+    autoRecord: { type: Boolean, default: false },
     isAdmin: { type: Boolean, default: false },
 }, { timestamps: true });
 

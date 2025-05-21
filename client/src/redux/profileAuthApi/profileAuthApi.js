@@ -17,7 +17,7 @@ const baseQuery = fetchBaseQuery({
 export const profileAuthApi = createApi({
     reducerPath: 'profileAuthApi',
     baseQuery,
-    tagTypes: ['Profile'], // Add this line
+    tagTypes: ['Profile', 'Settings'], // Add this line
     endpoints: (builder) => ({
         updateProfile: builder.mutation({
             query: (formData) => ({
@@ -63,10 +63,22 @@ export const profileAuthApi = createApi({
         method: 'DELETE'
       }),
       invalidatesTags: ['User']
-    })
+    }),
+     getUserSettings: builder.query({
+      query: () => '/me/settings',
+      providesTags: ['Settings'],
+    }),
+    updateUserSettings: builder.mutation({
+      query: newSettings => ({
+        url: '/me/settings',
+        method: 'PUT',
+        body: newSettings,
+      }),
+      invalidatesTags: ['Settings'],
+    }),
     }),
   });
   
   
-  export const { useUpdateProfileMutation, useGetUserProfileQuery, useGetUsersQuery, useDeleteUserMutation } = profileAuthApi;
+  export const { useUpdateProfileMutation, useGetUserProfileQuery, useGetUsersQuery, useDeleteUserMutation, useGetUserSettingsQuery, useUpdateUserSettingsMutation } = profileAuthApi;
   export default profileAuthApi;

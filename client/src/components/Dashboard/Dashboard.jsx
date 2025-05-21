@@ -4,11 +4,13 @@ import { IoIosPerson } from "react-icons/io";
 import { TbPasswordUser } from "react-icons/tb";
 import { AiOutlineMenu } from "react-icons/ai";
 import { MdDeleteForever } from "react-icons/md";
+import { MdGTranslate } from "react-icons/md";
 
 // Components
 import Profile from "../../components/Profile/Profile";
 import ResetPassword from "../../components/ResetPassword/ResetPassword";
 import DeleteAccount from "../../components/DeleteAccount/DeleteAccount";
+import ToggleEmail from "../../components/ToggleEmail/ToggleEmail";
 
 
 
@@ -22,6 +24,8 @@ const dashboardItems = [
 const Dashboard = ({ onBack }) => {
   const [selected, setSelected] = useState("profile");
   const [showSidebar, setShowSidebar] = useState(true);
+  const hoverBg = "hover:bg-[#00013d]";
+
 
   // Toggle sidebar visibility
   const toggleSidebar = () => setShowSidebar((v) => !v);
@@ -46,18 +50,33 @@ const Dashboard = ({ onBack }) => {
 
         <ul className="space-y-2">
           {dashboardItems.map(({ key, icon }) => (
-            <li
-              key={key}
-              onClick={() => handleSelect(key)}
-              className={`
-                flex items-center justify-center gap-2 p-3 rounded-md
-                cursor-pointer hover:bg-[#00013d] transition-colors
-                ${selected === key ? "bg-[#00013d]" : ""}
-              `}
-            >
-              <span className="text-2xl">{icon}</span>
+              <li
+                key={key}
+                onClick={() => handleSelect(key)}
+                className={`
+                    flex items-center justify-center 
+                    p-3 rounded-md 
+                    cursor-pointer 
+                    transition-colors
+                    ${hoverBg}
+                    ${selected === key ? "bg-[#00013d]" : ""}
+                  `}
+                >
+                  <span className="text-2xl">{icon}</span>
             </li>
           ))}
+
+           <li
+              className={`
+                flex items-center justify-center
+                p-3 rounded-md
+                cursor-pointer
+                transition-colors
+                ${hoverBg}
+              `}
+            >
+              <ToggleEmail />
+          </li>
         </ul>
       </aside>
 
@@ -80,6 +99,7 @@ const Dashboard = ({ onBack }) => {
         {selected === "profile" && <Profile />}
         {selected === "reset-password" && <ResetPassword />}
         {selected === "delete-account" && <DeleteAccount />}
+    
 
         {/* Floating menu icon on mobile */}
         <button

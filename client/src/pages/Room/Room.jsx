@@ -11,12 +11,15 @@ import { SlCallEnd } from "react-icons/sl";
 import { FaCopy } from "react-icons/fa";
 import { useUploadVideoMutation } from '../../redux/videosUploadApi/videoUploadApi';
 import { useJoinMeetingMutation } from '../../redux/meetingApi/meetingApi';
+import { useGetUserSettingsQuery } from '../../redux/profileAuthApi/profileAuthApi';
+
 
 
 
 
 
 const Room = () => {
+  const { data: settings = {}, isLoading: settingsLoading } = useGetUserSettingsQuery();
   const [uploadVideo] = useUploadVideoMutation();
   const [joinMeeting] = useJoinMeetingMutation();
   const darkMode       = useSelector(s => s.theme.darkMode);
@@ -83,7 +86,18 @@ const Room = () => {
   const [isMuted, setIsMuted]                 = useState(false);
   const [isVideoOff, setIsVideoOff]           = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  
 
+   // apply defaults once settings arrive
+  useEffect(() => {
+    if (!settingsLoading) {
+      setIsMuted(settings.autoMute);
+      setIsVideoOff(settings.autoVideoOff);
+      // do NOT start recording until after local media is ready:
+    }
+  }, [settings, settingsLoading]);
+
+ 
   useEffect(() => {
   if (!isHost) {
     joinMeeting(roomId).catch(console.error);
@@ -193,11 +207,12 @@ const Room = () => {
 
 
   // Start Recording (Separate Stream)
-  const startRecording = async () => {
+// wrap startRecording in useCallback
+  const startRecording = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
     recorderRef.current = recorder;
-    chunksRef.current = [];
+    chunksRef.current   = [];
 
     recorder.ondataavailable = e => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -218,20 +233,27 @@ const Room = () => {
         toast.error('Upload failed');
       } finally {
         setIsUploading(false);
-        // Stop the recording stream
         stream.getTracks().forEach(t => t.stop());
       }
     };
 
     recorder.start();
     setIsRecording(true);
-  };
+  }, [roomId, uploadVideo]);
 
-  // Stop Recording
-  const stopRecording = () => {
+  // likewise wrap stopRecording
+  const stopRecording = useCallback(() => {
     recorderRef.current?.stop();
     setIsRecording(false);
-  };
+  }, []);
+
+   // then, once we have our localStream, if autoRecord is true, kick off recording:
+  useEffect(() => {
+    if (hasLocalStream && settings.autoRecord && !isRecording) {
+      startRecording();   // your existing function
+    }
+  }, [hasLocalStream, settings.autoRecord, isRecording, startRecording]);
+
 
   // Using useMemo to ensure iceServers is stable
   const iceServers = useMemo(() => ({
@@ -495,7 +517,7 @@ const Room = () => {
 
             {/* Chat fills most of the width on large screens */}
             <div className="width-full">
-              <Chat socket={socket} />
+              <Chat meetingId={roomId} />
             </div>
 
            

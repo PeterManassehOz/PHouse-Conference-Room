@@ -6,13 +6,10 @@ import { useSelector } from "react-redux";
 // Icons
 import { IoArrowBack, IoLogOut } from "react-icons/io5";
 import { LuLayoutDashboard } from "react-icons/lu";
-import {
-  MdVideoCall,
-  MdHistory,
-  MdEventAvailable,
-} from "react-icons/md";
+import { MdVideoCall, MdHistory,MdEventAvailable } from "react-icons/md";
 import { AiOutlineCalendar } from "react-icons/ai";
-import { FiPhoneIncoming, FiSettings } from "react-icons/fi";import { PiRecordFill } from 'react-icons/pi';
+import { FiPhoneIncoming } from "react-icons/fi";
+import { PiRecordFill } from 'react-icons/pi';
 import { FcInvite } from "react-icons/fc";
 import { IoIosNotifications } from "react-icons/io";
 import LivingSeed from "/LSeed-Logo-1.png";
@@ -227,8 +224,3 @@ const Home = () => {
 };
 
 export default Home;
-
-
-/*
-, the auto-mute mic/video on join, auto-record, background blur settings, language, time zone, log out elsewhere, calendar integrations to my app
-*/
