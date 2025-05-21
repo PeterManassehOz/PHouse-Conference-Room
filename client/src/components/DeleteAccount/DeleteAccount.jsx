@@ -18,7 +18,7 @@ const DeleteAccount = () => {
     try {
       await deleteUser().unwrap();
       localStorage.removeItem('token');
-      navigate('/login');
+      navigate('/signup');
     } catch (err) {
       console.error('Delete account failed:', err);
       alert(err.data?.message || 'Could not delete your account.');

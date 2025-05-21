@@ -207,13 +207,14 @@ exports.scheduleMeeting = async (req, res) => {
     const inviteUrl = `${frontendHost}/?view=invites`;
 
     // 7. Send email invites to each participant
-    const mailPromises = users.map(u => {
-      return transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to:   u.email,
-        subject: `📅 You’re invited to “${meeting.title}”`,
-        html: `
-          <p>Hi there,</p>
+      const mailPromises = users
+      .filter(u => u.emailNotifications)  // ← only those opted in
+      .map(u => transporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to:   u.email,
+          subject: `Invite: ${meeting.title}`,
+           html: `
+          <p>Hi ${meeting.u},</p>
           <p>You’ve been invited to a meeting titled "<strong>${meeting.title}</strong>" on ${new Date(meeting.date).toLocaleString()}.</p>
           <p>
             <a href="${inviteUrl}">
@@ -221,9 +222,9 @@ exports.scheduleMeeting = async (req, res) => {
             </a>
           </p>
         `
-      });
-    });
-    await Promise.all(mailPromises);
+      }));
+
+     await Promise.all(mailPromises);
 
 
     // 8. Respond with the full meeting document

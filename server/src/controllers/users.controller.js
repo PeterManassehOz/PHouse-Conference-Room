@@ -115,3 +115,37 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ message: 'Server error—could not delete account.' });
   }
 };
+
+
+exports.getUserSettings = async (req, res) => {
+  const user = await User.findById(req.user.id)
+    .select('emailNotifications autoMute autoVideoOff autoRecord');
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json({
+    emailNotifications: user.emailNotifications,
+    autoMute:           user.autoMute,
+    autoVideoOff:       user.autoVideoOff,
+    autoRecord:         user.autoRecord
+  });
+};
+
+// PUT /api/users/me/settings
+exports.updateUserSettings = async (req, res) => {
+  const { emailNotifications, autoMute, autoVideoOff, autoRecord } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  // Only update fields that are provided
+  if (typeof emailNotifications === 'boolean') user.emailNotifications = emailNotifications;
+  if (typeof autoMute           === 'boolean') user.autoMute           = autoMute;
+  if (typeof autoVideoOff       === 'boolean') user.autoVideoOff       = autoVideoOff;
+  if (typeof autoRecord         === 'boolean') user.autoRecord         = autoRecord;
+
+  await user.save();
+  res.json({
+    emailNotifications: user.emailNotifications,
+    autoMute:           user.autoMute,
+    autoVideoOff:       user.autoVideoOff,
+    autoRecord:         user.autoRecord
+  });
+};
