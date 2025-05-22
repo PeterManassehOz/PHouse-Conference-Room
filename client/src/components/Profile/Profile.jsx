@@ -6,28 +6,13 @@ import { AiOutlineClose } from "react-icons/ai";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { useUpdateProfileMutation, useGetUserProfileQuery } from "../../redux/profileAuthApi/profileAuthApi";
+import { useGetUpcomingQuery } from "../../redux/meetingApi/meetingApi";
 import Spinner from "../Spinner/Spinner";
 
 
 
 const Profile = () => {
-  // Dark Mode from Redux
-  const darkMode = useSelector((state) => state.theme.darkMode);
-
-  const [updateProfile, { isLoading }] = useUpdateProfileMutation();
-   const { data: userProfile, isLoading: profileLoading, error } = useGetUserProfileQuery();
-
-     useEffect(() => {
-    if (userProfile) {
-      console.log('User Profile Data:', userProfile); // Log the full response here
-      console.log('Image URL:', userProfile?.image);   // Log just the image URL if available
-    }
-  }, [userProfile]);
-
-  // Sample Data (Replace with your data fetching logic)
-  const previousMeetings = ["Meeting 1", "Meeting 2", "Meeting 3"];
-  const scheduledMeetings = ["Meeting 1", "Meeting 2", "Meeting 3"];
-  const recordedMeetings = ["Meeting 1", "Meeting 2", "Meeting 3"];
+  
 
   // Validation Schema
   const schema = yup.object().shape({
@@ -55,6 +40,42 @@ const Profile = () => {
   } = useForm({
     resolver: yupResolver(schema),
   });
+
+
+  // Dark Mode from Redux
+  const darkMode = useSelector((state) => state.theme.darkMode);
+
+  const [updateProfile, { isLoading }] = useUpdateProfileMutation();
+   const { data: userProfile, isLoading: profileLoading, error } = useGetUserProfileQuery();
+
+     // 2) Upcoming meetings
+  const { data: upcoming = [], isLoading: upcomingLoading } =
+    useGetUpcomingQuery();
+
+  // 3) Compute next meeting and greeting
+  const nextMeeting = upcoming.length > 0 ? upcoming[0] : null;
+
+  const formatTimestamp = (date) => {
+  const today = new Date();
+  const msgDate = new Date(date);
+  const isToday = msgDate.toDateString() === today.toDateString();
+  return isToday
+    ? msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : msgDate.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+
+     useEffect(() => {
+    if (userProfile) {
+      console.log('User Profile Data:', userProfile); // Log the full response here
+      console.log('Image URL:', userProfile?.image);   // Log just the image URL if available
+    }
+  }, [userProfile]);
+
 
   const [imagePreview, setImagePreview] = useState(null);
   const imageRef = useRef();
@@ -110,123 +131,141 @@ const Profile = () => {
   }
 
   
-  if (profileLoading) return <Spinner />;
+  if (profileLoading || upcomingLoading) return <Spinner />;
   if (error) return <div className="text-red-500 text-center">Error loading profile.</div>;
 
 
   return (
-<div
-className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-gray-900"}`}
->
-<div className="flex flex-col md:flex-row gap-6">
-  {/* Profile Form */}
-  <div className={`w-full md:w-1/4 p-8 shadow-md rounded-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
-    <h2 className={`text-2xl font-semibold text-center mb-6 ${darkMode ? "text-white" : "text-black"}`}>
-      Edit Profile
-    </h2>
-    <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-      <div>
-        <input
-          type="text"
-          placeholder="Username"
-          {...register("username")}
-          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
-        />
-        {errors.username && <p className="text-red-500 text-sm">{errors.username.message}</p>}
-      </div>
-      <div>
-        <input
-          type="text"
-          placeholder="Phone"
-          {...register("phone")}
-          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
-        />
-        {errors.phone && <p className="text-red-500 text-sm">{errors.phone.message}</p>}
-      </div>
-      <div>
-        <textarea
-          placeholder="Write your bio"
-          {...register("bio")}
-          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
-        />
-        {errors.bio && <p className="text-red-500 text-sm">{errors.bio.message}</p>}
-      </div>
-      <label className="block w-full cursor-pointer">
-        <span className="w-30 text-white bg-orange-700 hover:bg-orange-400 px-4 py-2 rounded-md text-center block transition">
-          Choose File
-        </span>
-        <input type="file" className="hidden" accept=".jpg, .jpeg, .png" ref={imageRef} onChange={handleImageChange} />
-      </label>
-      {errors.image && <p className="text-red-500 text-sm">{errors.image.message}</p>}
-      <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer" type="submit" disabled={isLoading}>
-        {isLoading ? <Spinner /> : "Save"}
-      </button>
-    </form>
-  </div>
-
-  {/* Profile Image Section */}
-  <div className="flex-1 w-full md:w-2/4 flex items-center justify-center">
-    {imagePreview ? (
-      <div className="relative w-full h-[600px]">
-        <img src={imagePreview} alt="Profile Preview" className="w-full h-full object-cover rounded-md shadow-md border-4 border-gray-300" />
-        <button className="absolute top-4 right-4 bg-red-600 text-white p-1 rounded-full" onClick={handleRemoveImage}>
-          <AiOutlineClose size={18} />
-        </button>
-      </div>
+  <div
+  className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-gray-900"}`}
+  >
+   {/* ==== Greeting & Next Meeting ==== */}
+  <div className={`space-y-2 p-5 rounded-md ${darkMode ? "text-white bg-gray-800" : "text-black bg-white"}`}>
+    <h1 className="text-3xl font-bold">
+      {greeting}, {userProfile.username}
+    </h1>
+    {nextMeeting ? (
+      <p className="text-lg">
+        Your next meeting:{" "}
+        <span className="font-semibold">{nextMeeting.title}</span> on{" "}
+        {formatTimestamp(nextMeeting.date)}
+      </p>
     ) : (
-      <img src={userProfile?.image || "./profileIconBrown.jpeg"} alt="Profile" className="w-full h-[600px] object-cover rounded-md shadow-md border-4 border-gray-300" />
+      <p className="text-lg italic">You have no upcoming meetings.</p>
     )}
   </div>
 
-   {/* Profile Details Section */}
-   <div className={`p-4 shadow-md rounded-md w-full md:w-1/4 space-y-4 ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
-      <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
-        <h3 className="font-semibold">Name:</h3>
-        <p>{userProfile?.username || "John Doe"}</p>
-      </div>
+  <div className="flex flex-col md:flex-row gap-6">
+    {/* Profile Form */}
+    <div className={`w-full md:w-1/4 p-8 shadow-md rounded-lg ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
+      <h2 className={`text-2xl font-semibold text-center mb-6 ${darkMode ? "text-white" : "text-black"}`}>
+        Edit Profile
+      </h2>
+      <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <div>
+          <input
+            type="text"
+            placeholder="Username"
+            {...register("username")}
+            className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          />
+          {errors.username && <p className="text-red-500 text-sm">{errors.username.message}</p>}
+        </div>
+        <div>
+          <input
+            type="text"
+            placeholder="Phone"
+            {...register("phone")}
+            className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          />
+          {errors.phone && <p className="text-red-500 text-sm">{errors.phone.message}</p>}
+        </div>
+        <div>
+          <textarea
+            placeholder="Write your bio"
+            {...register("bio")}
+            className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          />
+          {errors.bio && <p className="text-red-500 text-sm">{errors.bio.message}</p>}
+        </div>
+        <label className="block w-full cursor-pointer">
+          <span className="w-30 text-white bg-orange-700 hover:bg-orange-400 px-4 py-2 rounded-md text-center block transition">
+            Choose File
+          </span>
+          <input type="file" className="hidden" accept=".jpg, .jpeg, .png" ref={imageRef} onChange={handleImageChange} />
+        </label>
+        {errors.image && <p className="text-red-500 text-sm">{errors.image.message}</p>}
+        <button className="w-full bg-[#00013d] text-white py-2 rounded-md hover:bg-[#03055B] transition duration-200 cursor-pointer" type="submit" disabled={isLoading}>
+          {isLoading ? <Spinner /> : "Save"}
+        </button>
+      </form>
+    </div>
 
-      <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
-        <h3 className="font-semibold">Phone:</h3>
-        <p>{ userProfile?.phone || "0123456789"}</p>
-      </div>
+    {/* Profile Image Section */}
+    <div className="flex-1 w-full md:w-2/4 flex items-center justify-center">
+      {imagePreview ? (
+        <div className="relative w-full h-[600px]">
+          <img src={imagePreview} alt="Profile Preview" className="w-full h-full object-cover rounded-md shadow-md border-4 border-gray-300" />
+          <button className="absolute top-4 right-4 bg-red-600 text-white p-1 rounded-full" onClick={handleRemoveImage}>
+            <AiOutlineClose size={18} />
+          </button>
+        </div>
+      ) : (
+        <img src={userProfile?.image || "./profileIconBrown.jpeg"} alt="Profile" className="w-full h-[600px] object-cover rounded-md shadow-md border-4 border-gray-300" />
+      )}
+    </div>
 
-      <div className={` ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
-        <h3 className="font-semibold">Bio:</h3>
-        <p>{userProfile?.bio || "Write something about yourself"}</p>
+    {/* Profile Details Section */}
+    <div className={`p-4 shadow-md rounded-md w-full md:w-1/4 space-y-4 ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
+        <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
+          <h3 className="font-semibold">Name:</h3>
+          <p>{userProfile?.username || "John Doe"}</p>
+        </div>
+
+        <div className={`${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
+          <h3 className="font-semibold">Phone:</h3>
+          <p>{ userProfile?.phone || "0123456789"}</p>
+        </div>
+
+        <div className={` ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"} p-3 rounded-md`}>
+          <h3 className="font-semibold">Bio:</h3>
+          <p>{userProfile?.bio || "Write something about yourself"}</p>
+        </div>
+    </div>
+  </div>
+
+
+      
+      {/* ==== Full-Width Scheduled Calls, Meetings, and Videos ==== */}
+      <div
+        className={`w-full mt-6 p-6 mb-6 shadow-md rounded-md ${
+          darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
+        }`}
+      >
+        <h2 className="text-xl font-semibold text-center mb-4">Upcoming Meetings</h2>
+        <div className="flex flex-wrap gap-4">
+          {upcoming.length > 0 ? (
+            upcoming.map((m) => (
+              <div
+                key={m._id}
+                className={`flex-1 min-w-[150px] p-4 rounded-md ${
+                  darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"
+                }`}
+              >
+                <h3 className="font-semibold">{m.title}</h3>
+                <p className="text-sm">
+                 {formatTimestamp(nextMeeting.date)}
+                </p>
+              </div>
+            ))
+          ) : (
+            <div className="w-full p-4 text-center text-gray-500">
+              No upcoming meeting.
+            </div>
+          )}
+        </div>
       </div>
   </div>
-</div>
-
-  {/* Full-Width Scheduled Calls, Meetings, and Videos */}
-  <div className={`w-full mt-6 p-6 mb-6 shadow-md rounded-md ${darkMode ? "bg-gray-800 text-white" : "bg-white text-black"}`}>
-    <h2 className="text-xl font-semibold mb-4">Scheduled Meetings</h2>
-    <div className="flex flex-wrap gap-4">
-      {scheduledMeetings.map((schedule, index) => (
-        <div key={index} className={`flex-1 min-w-[150px] p-4 rounded-md ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"}`}>
-          {schedule}
-        </div>
-      ))}
-    </div>
-
-    <h2 className="text-xl font-semibold mt-6 mb-4">Previous Meetings</h2>
-    <div className="flex flex-wrap gap-4">
-      {previousMeetings.map((meeting, index) => (
-        <div key={index} className={`flex-1 min-w-[150px] p-4 rounded-md ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"}`}>
-          {meeting}
-        </div>
-      ))}
-    </div>
-
-    <h2 className="text-xl font-semibold mt-6 mb-4">Recorded Meetings</h2>
-    <div className="flex flex-wrap gap-4">
-      {recordedMeetings.map((recorded, index) => (
-        <div key={index} className={`flex-1 min-w-[150px] p-4 rounded-md ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"}`}>
-          {recorded}
-        </div>
-      ))}
-    </div>
-  </div>
-</div>
 
   );
 };

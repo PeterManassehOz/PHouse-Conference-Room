@@ -6,10 +6,18 @@ import {
   MdVideocamOff,
   MdScreenShare,
   MdStopScreenShare,
-  MdArrowDropDown 
+  MdArrowDropDown, 
+  MdAddReaction
 } from 'react-icons/md';
 import { PiRecordFill, PiStopFill } from 'react-icons/pi';
 import Spinner from '../Spinner/Spinner';
+import Picker from 'emoji-picker-react';
+import socket from '../../utils/socket/socket';
+
+
+
+
+
 
 const Controls = ({
   isMuted,
@@ -24,6 +32,8 @@ const Controls = ({
   isUploading,
   setSelectedCamera,
   setSelectedMicrophone,
+  roomId,
+  meId,
 }) => {
   const [cameras, setCameras] = useState([]);
   const [microphones, setMicrophones] = useState([]);
@@ -32,9 +42,12 @@ const Controls = ({
 
   const [showCamMenu, setShowCamMenu] = useState(false);
   const [showMicMenu, setShowMicMenu] = useState(false);
+  const [showMeetingPicker, setShowMeetingPicker] = useState(false);
+
 
   const camMenuRef = useRef();
   const micMenuRef = useRef();
+  const pickerRef = useRef();
 
   // Fetch devices
   useEffect(() => {
@@ -68,6 +81,9 @@ const Controls = ({
       if (micMenuRef.current && !micMenuRef.current.contains(e.target)) {
         setShowMicMenu(false);
       }
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+      setShowMeetingPicker(false);
+    }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -154,6 +170,34 @@ const Controls = ({
       >
         {isScreenSharing ? <MdStopScreenShare size={24} /> : <MdScreenShare size={24} />}
       </button>
+       
+       {/* Meeting Reaction Button */}
+      <div className="relative">
+        <button
+          onClick={() => setShowMeetingPicker(v => !v)}
+          className="p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white  cursor-pointer"
+        >
+          <MdAddReaction size={24}/>
+        </button>
+        {showMeetingPicker && (
+          <div 
+            ref={pickerRef} 
+            className="absolute -left-56 -top-70 bottom-full mb-2 z-20">
+            <Picker
+              onEmojiClick={({ emoji }) => {
+                console.log('🏷️ picked emoji:', emoji);
+                socket.emit('react-to-meeting', {
+                  meetingId: roomId,
+                  userId: meId,
+                  emoji: emoji
+                });
+                setShowMeetingPicker(false);
+              }}
+            />
+          </div>
+        )}
+      </div>
+
 
       {/* Recording Control */}
       <button

@@ -189,7 +189,7 @@ const Home = () => {
           flex-1 transition-all duration-300 overflow-auto
           ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-black"}
           ${selected ? "block" : "hidden md:block"}
-          md:ml-28           /* push content right by sidebar width */
+          md:ml-28 
         `}
         style={{ height: "100vh" }}
       >

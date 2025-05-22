@@ -66,6 +66,14 @@ export const meetingApi = createApi({
       }),
       invalidatesTags: ['Meeting']
     }),
+    sendChatMessage: builder.mutation({
+      query: ({ meetingId, text }) => ({
+        url: `/${meetingId}/chat`,
+        method: 'POST',
+        body: { text }
+      }),
+      invalidatesTags: ['Chat']
+    }),
     getChat: builder.query({
       // GET /meetings/:id/chat
       query: meetingId => `/${meetingId}/chat`,
@@ -78,16 +86,6 @@ export const meetingApi = createApi({
           return m;
         });
       },
-    }),
-    postChat: builder.mutation({
-      query: ({ meetingId, text }) => ({
-        url: `/${meetingId}/chat`,
-        method: 'POST',
-        body: { text }
-      }),
-      invalidatesTags: (res, err, { meetingId }) => [
-        { type: 'Chat', id: meetingId }
-      ]
     }),
     editChat: builder.mutation({
     query: ({ messageId, text }) => ({
@@ -107,4 +105,4 @@ export const meetingApi = createApi({
   }),
 });
 
-export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useGetChatQuery, usePostChatMutation, useEditChatMutation, useDeleteChatMutation} = meetingApi;
+export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useSendChatMessageMutation, useGetChatQuery, useEditChatMutation, useDeleteChatMutation} = meetingApi;
