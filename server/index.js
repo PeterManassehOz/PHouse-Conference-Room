@@ -1,3 +1,17 @@
+// 1️⃣ Global exception handlers — place these first!
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  // Optionally: clean up, then exit or let a process manager restart you
+  // process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Optionally: clean up, then exit or let a process manager restart you
+  // process.exit(1);
+});
+
+
 const express = require('express');
 const app = express();
 const mongoose = require('mongoose');

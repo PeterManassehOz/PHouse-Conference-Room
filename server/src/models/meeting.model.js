@@ -7,6 +7,13 @@ const participantSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+const reactionSchema = new mongoose.Schema({
+  user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  emoji:     { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
 const meetingSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
@@ -14,6 +21,7 @@ const meetingSchema = new mongoose.Schema({
   participants: [participantSchema],
   link: { type: String }, 
   hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  reactions: [reactionSchema],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });
 

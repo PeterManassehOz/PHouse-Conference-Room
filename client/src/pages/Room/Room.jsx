@@ -27,6 +27,8 @@ const Room = () => {
   const navigate       = useNavigate();
   const roomLink       = `${window.location.origin}/room/${roomId}`;
   const linkInputRef = useRef(null);
+  const [meetingReactions, setMeetingReactions] = useState([]);
+
   
   const hostId = localStorage.getItem('hostId');
   const meId   = localStorage.getItem('userId');
@@ -88,6 +90,19 @@ const Room = () => {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   
 
+  useEffect(() => {
+  socket.on('meeting-reaction', reaction => {
+    // add to local list (so you can animate/display)
+    setMeetingReactions(r => [...r, reaction]);
+    // optionally clear it after X seconds
+    setTimeout(() => {
+      setMeetingReactions(r => r.filter((_,i) => i !== 0));
+    }, 60000);
+  });
+  return () => { socket.off('meeting-reaction'); }
+}, []);
+
+
    // apply defaults once settings arrive
   useEffect(() => {
     if (!settingsLoading) {
@@ -105,9 +120,10 @@ const Room = () => {
   }, [roomId, isHost, joinMeeting]);
 
   const leaveMeeting = useCallback(() => {
-    socket.emit('leave-room', roomId);
+    socket.emit('leave-meeting-room', {meetingId: roomId});
     Object.values(peerConnections.current).forEach(pc => pc.close());
     localStreamRef.current?.getTracks().forEach(t => t.stop());
+    socket.disconnect();
     localStorage.removeItem('hostId');
     navigate('/');
   }, [roomId, navigate]);
@@ -130,7 +146,6 @@ const Room = () => {
   return () => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     socket.off('meeting-ended');
-    socket.disconnect();
   };
   }, [roomId, leaveMeeting]);
 
@@ -325,7 +340,7 @@ const Room = () => {
     setHasLocalStream(true);
 
     // now that we have media, join the room on the server
-    socket.emit('join-room', roomId);
+    socket.emit('join-meeting-room', { meetingId: roomId });
   })
  .catch(err => {
       console.error('Failed to access camera/mic', err);
@@ -364,7 +379,6 @@ const Room = () => {
   // 7. Meeting ended
   socket.on('meeting-ended', () => {
     toast.info('Meeting ended');
-    socket.disconnect();
     leaveMeeting();
   });
 
@@ -373,7 +387,6 @@ const Room = () => {
    return () => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     Object.values(pcs).forEach(pc => pc.close());
-    socket.disconnect();
   };
   }, [
     roomId,
@@ -451,8 +464,8 @@ const Room = () => {
         )}
       </div>
 
-      {/* Video Grid */}
-      <div   className={`
+      {/* Video Grid and Reactions*/}
+      <div   className={`relative
             flex-1 p-4 grid gap-4
             ${peers.length > 0
               ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
@@ -477,6 +490,22 @@ const Room = () => {
                 controls
               />
             )}
+
+            
+          {/* Reactions */}
+          {meetingReactions.map((r, i) => (
+            <span
+              key={i}
+              className="absolute animate-float text-3xl"
+              style={{
+                top: `${20 + i*10}%`,
+                left: `${50 + (i%2 ? -10 : 10)}%`
+              }}
+            >
+              {r.emoji}
+            </span>
+          ))}
+
       </div>
 
      
@@ -512,6 +541,8 @@ const Room = () => {
                 isUploading={isUploading}
                 setSelectedCamera={setSelectedCamera}
                 setSelectedMicrophone={setSelectedMicrophone}
+                roomId={roomId}
+                meId={meId}
               />
             </div>
 

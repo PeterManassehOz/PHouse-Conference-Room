@@ -2,6 +2,23 @@
 const ChatMessage = require('../models/chatMessage.model');
 
 
+// POST /meetings/:id/chat
+exports.postChatMessage = async (req, res) => {
+  const { id: meetingId } = req.params;
+  const { text } = req.body;
+  const userId = req.user._id;
+
+  const newMessage = await ChatMessage.create({
+    meetingId,
+    user: userId,
+    text
+  });
+
+  await newMessage.populate('user', 'username image');
+  res.status(201).json(newMessage);
+};
+
+
 exports.getChatHistory = async (req, res) => {
   const { id: meetingId } = req.params;
   const msgs = await ChatMessage
@@ -10,17 +27,6 @@ exports.getChatHistory = async (req, res) => {
     .populate('user', 'username image');
   res.json(msgs);
 };
-
-
-exports.postChatMessage = async (req, res) => {
-  const { id: meetingId } = req.params;
-  const { text }          = req.body;
-  const userId            = req.user._id;
-  const msg = await ChatMessage.create({ meetingId, user: userId, text });
-  await msg.populate('user', 'username image');
-  res.status(201).json(msg);
-};
-
 
 // DELETE /meetings/chat/:messageId
 exports.deleteChatMessage = async (req, res) => {
