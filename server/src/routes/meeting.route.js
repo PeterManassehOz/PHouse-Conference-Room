@@ -1,5 +1,5 @@
 const express = require('express');
-const { scheduleMeeting, getMyMeetings, getInvites, respondInvite, getUpcoming, deleteMeeting, startMeeting, joinMeeting } = require('../controllers/meeting.controller');
+const { scheduleMeeting, getMyMeetings, getInvites, respondInvite, getUpcoming, deleteMeeting, startMeeting, joinMeeting, getMeeting, leaveMeeting } = require('../controllers/meeting.controller');
 const router = express.Router();
 const { userAuthMiddleware } = require('../middleware/userAuthMiddleware');
 const { getChatHistory, deleteChatMessage, updateChatMessage } = require('../controllers/chatMessage.controller');
@@ -15,5 +15,7 @@ router.post('/:id/join', userAuthMiddleware, joinMeeting);
 router.get('/:id/chat', userAuthMiddleware, getChatHistory);
 router.delete('/chat/:messageId', userAuthMiddleware, deleteChatMessage);
 router.put('/chat/:messageId', userAuthMiddleware, updateChatMessage);
+router.get('/:id', userAuthMiddleware, getMeeting)
+router.post('/:id/leave', userAuthMiddleware, leaveMeeting);
 
 module.exports = router;

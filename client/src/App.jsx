@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import ForgotPassword from './components/ForgotPassword/ForgotPassword';
 import TokenResetPassword from './components/TokenResetPassword/TokenResetPassword';
 import VerifyOtpWithEmail from './components/VerifyOtpWithEmail/VerifyOtpWithEmail';
+import ForgotPHCode from './components/ForgotPHCode/ForgotPHCode';
 
 
 
@@ -28,6 +29,7 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgot-phcode" element={<ForgotPHCode />} />
         <Route path='/reset-password/:token' element={<TokenResetPassword />} />
         <Route path='/verify-email' element={<VerifyOtpWithEmail />} />
       </Routes>

@@ -112,66 +112,6 @@ const Chat = ({ meetingId }) => {
   }, [history, isLoading]);
 
 
-
-   // 2️⃣ Listen for message‐reaction broadcasts
-  /*useEffect(() => {
-    socket.on('message-reaction', updatedMsg => {
-      setMessages(prev =>
-        prev.map(m => (m._id === updatedMsg._id ? updatedMsg : m))
-      );
-    });
-    return () => socket.off('message-reaction');
-  }, []);*/
-
-  // Socket: join room & listen for incoming messages
-  /*useEffect(() => {
-    socket.emit('join-meeting-room', { meetingId });
-    socket.on('receive-message', (msg) => {
-      console.log('Received:', msg);
-      setMessages((prev) => {
-        if (prev.some((m) => m._id === msg._id)) {
-          return prev;
-        }
-        if (msg.tempId && msg.user._id === me._id) {
-          return prev.map((m) =>
-            m.tempId === msg.tempId ? { ...msg, tempId: undefined } : m
-          );
-        }
-        return [...prev, msg];
-      });
-    });
-    return () => socket.off('receive-message');
-  }, [meetingId, me._id]);*/
-
-  // 3️⃣ Listen for message-reaction broadcasts
-  /*useEffect(() => {
-  socket.on('message-reaction', (updatedMsg) => {
-    setMessages(prev =>
-      prev.map(msg =>
-        msg._id === updatedMsg._id ? {
-          ...msg,
-          reactions: updatedMsg.reactions.map(r => ({
-            ...r,
-            // reconstruct image URL just like getChat’s transformResponse:
-            user: {
-              ...r.user,
-              image: r.user.image
-                ? `http://localhost:5000/uploads/${r.user.image.split('/').pop()}`
-                : null
-            }
-          }))
-        }
-        : msg
-      )
-    );
-  });
-
-  return () => {
-    socket.off('message-reaction');
-  };
-  }, [setMessages]);*/
-
-
   useEffect(() => {
   // Join the meeting room
   socket.emit('join-meeting-room', { meetingId });
@@ -336,6 +276,11 @@ const Chat = ({ meetingId }) => {
   <div className="flex-1 overflow-y-auto mb-4 space-y-4">
     {messages.map((msg) => {
       const isMe = msg.user?._id === me._id;
+      const sentAt = new Date(msg.createdAt).getTime();
+      const now    = Date.now();
+      // allow edits only within 20 minutes (20 * 60 * 1000 ms)
+      const editable = isMe && (now - sentAt) < 20 * 60 * 1000;
+
       const justify = isMe ? 'justify-end' : 'justify-start';
       const rowDir = isMe ? 'flex-row-reverse' : 'flex-row';
       const bubbleColor = isMe
@@ -415,12 +360,14 @@ const Chat = ({ meetingId }) => {
 
                 {isMe && actionVisibleFor === msg._id && editingMessageId !== msg._id && (
                   <div className="absolute -bottom-10 right-0 flex gap-2 p-1 bg-white rounded">
-                    <button
-                      onClick={() => handleEditClick(msg._id, msg.text)}
-                      className="text-xs font-medium bg-yellow-700 text-white px-3 py-1 rounded hover:bg-yellow-600 transition cursor-pointer"
-                    >
-                      Edit
-                    </button>
+                     {editable && (
+                        <button
+                          onClick={() => handleEditClick(msg._id, msg.text)}
+                          className="text-xs font-medium bg-yellow-700 text-white px-3 py-1 rounded hover:bg-yellow-600 transition cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                      )}
                     <button
                       onClick={() => handleDelete(msg._id)}
                       className="text-xs font-medium bg-red-600 text-white px-3 py-1 rounded hover:bg-red-500 transition cursor-pointer"

@@ -44,7 +44,7 @@ export const meetingApi = createApi({
       }),
       invalidatesTags: ['Meeting'],
     }),
-     deleteMeeting: builder.mutation({
+    deleteMeeting: builder.mutation({
       query: (meetingId) => ({
         url: `/${meetingId}`,
         method: 'DELETE'
@@ -66,14 +66,6 @@ export const meetingApi = createApi({
       }),
       invalidatesTags: ['Meeting']
     }),
-    sendChatMessage: builder.mutation({
-      query: ({ meetingId, text }) => ({
-        url: `/${meetingId}/chat`,
-        method: 'POST',
-        body: { text }
-      }),
-      invalidatesTags: ['Chat']
-    }),
     getChat: builder.query({
       // GET /meetings/:id/chat
       query: meetingId => `/${meetingId}/chat`,
@@ -94,7 +86,7 @@ export const meetingApi = createApi({
           body: { text }
         }),
         invalidatesTags: ['Chat'],
-      }),
+    }),
     deleteChat: builder.mutation({
         query: (messageId) => ({
           url: `/chat/${messageId}`,
@@ -102,7 +94,46 @@ export const meetingApi = createApi({
       }),
       invalidatesTags: ['Chat'],
     }),
+    getMeetingById: builder.query({
+    query: (id) => `/${id}`,
+    transformResponse: (response) => {
+    const timestamp = Date.now();
+
+    // rewrite top‐level meeting.image if you need it
+    const image = response.image
+      ? `http://localhost:5000/uploads/${response.image.split('/').pop()}?t=${timestamp}`
+      : null;
+
+    // 🔄 rewrite every participant.user.image
+    const participants = response.participants.map(p => {
+      const img = p.user.image
+        ? `http://localhost:5000/uploads/${p.user.image.split('/').pop()}?t=${timestamp}`
+        : null;
+      return {
+        ...p,
+        user: {
+          ...p.user,
+          image: img
+        }
+      };
+    });
+
+    return {
+      ...response,
+      image,
+      participants
+    };
+  },
+  providesTags: ['Meeting'],
+    }),
+    leaveMeeting: builder.mutation({
+      query: (meetingId) => ({
+        url:    `/${meetingId}/leave`,
+        method: 'POST'
+      }),
+      invalidatesTags: ['Meeting']
+    }),
   }),
 });
 
-export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useSendChatMessageMutation, useGetChatQuery, useEditChatMutation, useDeleteChatMutation} = meetingApi;
+export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useGetChatQuery, useEditChatMutation, useDeleteChatMutation, useGetMeetingByIdQuery, useLeaveMeetingMutation} = meetingApi;

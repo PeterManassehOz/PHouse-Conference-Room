@@ -28,6 +28,7 @@ const StartMeeting = () => {
       }).unwrap();
 
       localStorage.setItem('hostId', hostId);
+      localStorage.setItem('userId', hostId);
       setId(meetingId);
       setLink(link);
 

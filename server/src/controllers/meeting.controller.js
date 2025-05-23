@@ -135,24 +135,30 @@ exports.joinMeeting = async (req, res) => {
     const meetingId = req.params.id;
     const userId    = req.user._id;
 
-    // 1) Find meeting
-    const meeting = await Meeting.findById(meetingId);
-    if (!meeting) return res.status(404).json({ message: 'Meeting not found' });
+    // atomically add the participant if not already present
+    const updated = await Meeting.findByIdAndUpdate(
+      meetingId,
+      { 
+        $addToSet: { 
+          participants: { user: userId, status: 'Accepted' } 
+        } 
+      },
+      { new: true, runValidators: true }
+    )
+    .populate('participants.user', 'username email image');
 
-    // 2) If user not already a participant, add them as “Accepted”
-    const already = meeting.participants.some(p => p.user.equals(userId));
-    if (!already) {
-      meeting.participants.push({ user: userId, status: 'Accepted' });
-      await meeting.save();
+    if (!updated) {
+      return res.status(404).json({ message: 'Meeting not found' });
     }
 
-    // 3) Return the updated meeting (or at least the participants array)
-    res.json({ meetingId, participants: meeting.participants });
+    // return the fresh participants array
+    res.json({ meetingId, participants: updated.participants });
   } catch (err) {
     console.error('Error in joinMeeting:', err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
 
@@ -355,6 +361,56 @@ exports.deleteMeeting = async (req, res) => {
     res.json({ message: 'Deleted' });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+exports.getMeeting = async (req, res) => {
+  const meeting = await Meeting.findById(req.params.id)
+    .populate('participants.user', 'username email image');
+  if (!meeting) return res.status(404).json({ message: 'Not found' });
+  res.json(meeting);
+};
+
+
+
+
+exports.leaveMeeting = async (req, res) => {
+  const meetingId = req.params.id;
+  const userId = req.user._id;
+
+  console.log('Leaving meeting...');
+  console.log('Meeting ID:', meetingId);
+  console.log('User ID:', userId);
+
+  try {
+    const meeting = await Meeting.findById(meetingId);
+
+    if (!meeting) {
+      console.log('Meeting not found.');
+      return res.status(404).json({ message: 'Meeting not found' });
+    }
+
+    // Log participants before filtering
+    console.log('Participants before:', meeting.participants.map(p => p.user.toString()));
+
+    // Filter out the user
+    meeting.participants = meeting.participants.filter(
+      (p) => !p.user.equals(userId)
+    );
+
+    // Log participants after filtering
+    console.log('Participants after:', meeting.participants.map(p => p.user.toString()));
+
+    await meeting.save();
+
+    // Re-fetch the updated meeting with populated participants
+    const updatedMeeting = await Meeting.findById(meetingId).populate('participants.user', 'username email image');
+
+    res.json({ meetingId, participants: updatedMeeting.participants });
+  } catch (err) {
+    console.error('Error in leaveMeeting:', err);
     res.status(500).json({ message: err.message });
   }
 };

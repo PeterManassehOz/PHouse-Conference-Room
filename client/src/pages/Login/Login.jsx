@@ -85,8 +85,9 @@ const Login = () => {
         </button>
 
         <div className={`text-center mt-4 ${darkMode ? "text-white" : "text-gray-600" }`}>
-          <p>Don&apos;t have an account? <Link to="/signup" className={`${darkMode ? "text-blue-900" : "text-blue-900" }`}>Sign up</Link></p>
-          <p>Forgot password? <Link to="/forgot-password" className={`${darkMode ? "text-blue-900" : "text-blue-900" }`}>Reset</Link></p>
+          <p>Don&apos;t have an account? <Link to="/signup" className={`${darkMode ? "text-blue-500" : "text-blue-800" }`}>Sign up</Link></p>
+          <p>Forgot password? <Link to="/forgot-password" className={`${darkMode ? "text-blue-500" : "text-blue-800" }`}>Reset</Link></p>
+          <p>Forgot PHCode? <Link to="/forgot-phcode" className={`${darkMode ? "text-blue-500" : "text-blue-800" }`}>Get Mail</Link></p>
         </div> 
       </form>
     </div>

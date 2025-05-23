@@ -1,28 +1,28 @@
-// models/meeting.model.js
 const mongoose = require('mongoose');
+const { Schema } = mongoose;
 
-const participantSchema = new mongoose.Schema({
-  user:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status:  { type: String, enum: ['Pending','Accepted','Declined'], default: 'Pending' },
+const participantSchema = new Schema({
+  user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status:    { type: String, enum: ['Pending','Accepted','Declined'], default: 'Pending' },
   updatedAt: { type: Date, default: Date.now }
 });
 
-const reactionSchema = new mongoose.Schema({
+const reactionSchema = new Schema({
   user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   emoji:     { type: String, required: true },
   createdAt: { type: Date, default: Date.now }
 });
 
-
-const meetingSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String },
-  date: { type: Date,   required: true },
+const meetingSchema = new Schema({
+  title:        { type: String, required: true },
+  description:  { type: String },
+  date:         { type: Date, required: true },
   participants: [participantSchema],
-  link: { type: String }, 
-  hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  reactions: [reactionSchema],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  link:         { type: String },
+  hostId:       { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  reactions:    [reactionSchema],
+  createdBy:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });
+
 
 module.exports = mongoose.model('Meeting', meetingSchema);

@@ -10,8 +10,9 @@ import { FaPersonWalkingDashedLineArrowRight } from "react-icons/fa6";
 import { SlCallEnd } from "react-icons/sl";
 import { FaCopy } from "react-icons/fa";
 import { useUploadVideoMutation } from '../../redux/videosUploadApi/videoUploadApi';
-import { useJoinMeetingMutation } from '../../redux/meetingApi/meetingApi';
+import { useJoinMeetingMutation, useGetMeetingByIdQuery, useLeaveMeetingMutation } from '../../redux/meetingApi/meetingApi';
 import { useGetUserSettingsQuery } from '../../redux/profileAuthApi/profileAuthApi';
+import Spinner from '../../components/Spinner/Spinner';
 
 
 
@@ -19,21 +20,48 @@ import { useGetUserSettingsQuery } from '../../redux/profileAuthApi/profileAuthA
 
 
 const Room = () => {
+  const { id: roomId } = useParams();
   const { data: settings = {}, isLoading: settingsLoading } = useGetUserSettingsQuery();
   const [uploadVideo] = useUploadVideoMutation();
   const [joinMeeting] = useJoinMeetingMutation();
+  const [leaveMeetingApi] = useLeaveMeetingMutation();
+  const { data: meeting, isLoading, isError } = useGetMeetingByIdQuery(roomId);
+
+  const joinedRef = useRef(false);
+  const meId   = localStorage.getItem('userId');
+  const isHost = meeting?.hostId === meId;
+  console.log('Host ID:', meeting?.hostId, 'My ID:', meId);
+  console.log('Is Host:', isHost);
+
+
+    
+  useEffect(() => {
+    if (!meeting) return;
+    if (isHost)    return;
+    if (joinedRef.current) return;          // 💡 only run once
+
+    // make sure you haven’t already been added:
+    const already = meeting.participants.some(
+      p => p.user._id === meId
+    );
+    if (already) {
+      joinedRef.current = true;
+      return;
+    }
+
+    joinedRef.current = true;               // 💡 mark as “done”
+    joinMeeting(roomId).unwrap().catch(console.error);
+  }, [meeting, isHost, meId, roomId, joinMeeting]);
+
+
   const darkMode       = useSelector(s => s.theme.darkMode);
-  const { id: roomId } = useParams();
   const navigate       = useNavigate();
   const roomLink       = `${window.location.origin}/room/${roomId}`;
   const linkInputRef = useRef(null);
   const [meetingReactions, setMeetingReactions] = useState([]);
 
-  
-  const hostId = localStorage.getItem('hostId');
-  const meId   = localStorage.getItem('userId');
-  console.log('Host ID:', hostId, 'My ID:', meId);
-  const isHost = meId === hostId;
+  console.log('Meeting:', meeting);
+
 
   const copyLinkToClipboard = () => {
     const text = roomLink;
@@ -88,7 +116,7 @@ const Room = () => {
   const [isMuted, setIsMuted]                 = useState(false);
   const [isVideoOff, setIsVideoOff]           = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  
+
 
   useEffect(() => {
   socket.on('meeting-reaction', reaction => {
@@ -100,7 +128,7 @@ const Room = () => {
     }, 60000);
   });
   return () => { socket.off('meeting-reaction'); }
-}, []);
+  }, []);
 
 
    // apply defaults once settings arrive
@@ -112,21 +140,25 @@ const Room = () => {
     }
   }, [settings, settingsLoading]);
 
- 
-  useEffect(() => {
-  if (!isHost) {
-    joinMeeting(roomId).catch(console.error);
-  }
-  }, [roomId, isHost, joinMeeting]);
 
-  const leaveMeeting = useCallback(() => {
+  const leaveMeeting = useCallback(async () => {
+     // 1) Remove from socket room
     socket.emit('leave-meeting-room', {meetingId: roomId});
+
+    // 2) Remove from the DB participants array
+      try {
+      await leaveMeetingApi(roomId).unwrap();
+    } catch (err) {
+      console.error('Failed to leave meeting:', err);
+    }
+
+    // 3) Clean up WebRTC and navigate away
     Object.values(peerConnections.current).forEach(pc => pc.close());
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     socket.disconnect();
     localStorage.removeItem('hostId');
     navigate('/');
-  }, [roomId, navigate]);
+  }, [roomId, leaveMeetingApi, navigate]);
 
   const endMeeting = () => {
     socket.emit('end-meeting', roomId);
@@ -136,7 +168,7 @@ const Room = () => {
 
   // Initialize Local Stream without affecting the main stream
   useEffect(() => {
-  socket.emit('join-room', roomId);
+  socket.emit('join-meeting-room', roomId);
 
   socket.on('meeting-ended', () => {
     toast.info('Host has ended the meeting.');
@@ -323,71 +355,85 @@ const Room = () => {
     }
   }, [iceServers, roomId, addPeer]);
 
+
+
   // Join, WebRTC + socket handlers
   useEffect(() => {
-    // 1. Join room and get local media
-    navigator.mediaDevices.getUserMedia({
-    video: selectedCamera ? { deviceId: { exact: selectedCamera } } : true,
-    audio: selectedMicrophone ? { deviceId: { exact: selectedMicrophone } } : true
-  })  .then(camStream => {
-    // save the raw camera stream
-    localStreamRef.current = camStream;
+  // Take a snapshot of the current peerConnections
+  const pcs = { ...peerConnections.current };
 
-    // this is what VideoPlayer will render
-    setDisplayStream(camStream);
+  // 1) Define an async init function
+  const init = async () => {
+    try {
+      // a) Grab camera + mic
+      const camStream = await navigator.mediaDevices.getUserMedia({
+        video: selectedCamera
+          ? { deviceId: { exact: selectedCamera } }
+          : true,
+        audio: selectedMicrophone
+          ? { deviceId: { exact: selectedMicrophone } }
+          : true,
+      });
 
-    // flip your “got it” flag so the grid shows up
-    setHasLocalStream(true);
+      // b) Store + render
+      localStreamRef.current = camStream;
+      setDisplayStream(camStream);
+      setHasLocalStream(true);
 
-    // now that we have media, join the room on the server
-    socket.emit('join-meeting-room', { meetingId: roomId });
-  })
- .catch(err => {
-      console.error('Failed to access camera/mic', err);
-      toast.error('Failed to access camera/mic');
+      // c) Join socket room
+      socket.emit('join-meeting-room', { meetingId: roomId });
+
+    } catch (err) {
+      console.error('Initialization error:', err);
+      toast.error(
+        err.name === 'NotAllowedError'
+          ? 'Please allow camera/mic access to join.'
+          : 'Failed to join meeting.'
+      );
+    }
+  };
+
+  // 2) Kick off
+  init();
+
+    // 3) Socket handlers
+    socket.on('user-joined-meeting', userId => {
+      setupConnection(userId, isHost);
+    });
+    socket.on('offer', async ({ from, sdp }) => {
+      setupConnection(from, false);
+      const pc = peerConnections.current[from];
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit('answer', { roomId, to: from, sdp: answer });
+    });
+    socket.on('answer', async ({ from, sdp }) => {
+      const pc = peerConnections.current[from];
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    });
+    socket.on('ice-candidate', ({ from, candidate }) => {
+      peerConnections.current[from]?.addIceCandidate(
+        new RTCIceCandidate(candidate)
+      );
+    });
+    socket.on('user-left-meeting', removePeer);
+    socket.on('meeting-ended', () => {
+      toast.info('Meeting ended');
+      leaveMeeting();
     });
 
-   // 2. New user joined
-  socket.on('user-joined', userId => {
-    setupConnection(userId, isHost);
-  });
-
-  // 3. Received offer
-  socket.on('offer', async ({ from, sdp }) => {
-    setupConnection(from, false);
-    const pc = peerConnections.current[from];
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit('answer', { roomId, to: from, sdp: answer });
-  });
-
-  // 4. Received answer
-  socket.on('answer', async ({ from, sdp }) => {
-    const pc = peerConnections.current[from];
-    await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-  });
-
-  // 5. Received ICE candidates
-  socket.on('ice-candidate', ({ from, candidate }) => {
-    peerConnections.current[from]?.addIceCandidate(new RTCIceCandidate(candidate));
-  });
-
-  // 6. User left
-  socket.on('user-left', removePeer);
-
-  // 7. Meeting ended
-  socket.on('meeting-ended', () => {
-    toast.info('Meeting ended');
-    leaveMeeting();
-  });
-
-  const pcs = peerConnections.current;
-
-   return () => {
+  // 4) Cleanup
+  return () => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     Object.values(pcs).forEach(pc => pc.close());
-  };
+    socket.off('user-joined-meeting');
+    socket.off('offer');
+    socket.off('answer');
+    socket.off('ice-candidate');
+    socket.off('user-left-meeting');
+    socket.off('meeting-ended');
+    };
   }, [
     roomId,
     selectedCamera,
@@ -397,10 +443,17 @@ const Room = () => {
     leaveMeeting,
     setupConnection,
     removePeer,
+    joinMeeting,
   ]);
 
 
 
+  if (isLoading) {
+    return <Spinner />;
+  }
+  if (isError) {
+    return <p className="text-red-500 text-center">Error loading room.</p>;
+  }
 
 
   return (
@@ -543,6 +596,7 @@ const Room = () => {
                 setSelectedMicrophone={setSelectedMicrophone}
                 roomId={roomId}
                 meId={meId}
+                participants={meeting.participants}
               />
             </div>
 

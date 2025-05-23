@@ -10,20 +10,42 @@ const transporter = require('../config/nodemailer');
 
 const registerUser = async (req, res) => {
   try {
-    const { firstname, lastname, email, phcode, password, confirmPassword } = req.body;
+    const { firstname, lastname, email, password, confirmPassword, stateCode, gender } = req.body;
 
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
+    if (!/^[A-Z]{2,3}$/.test(stateCode)) {
+      return res.status(400).json({ message: "Invalid state code" });
+    }
+
+    if (!['M', 'F'].includes(gender)) {
+      return res.status(400).json({ message: "Gender must be 'M' or 'F'" });
+    }
+
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ message: "Email already in use" });
+
+    const year = new Date().getFullYear().toString().slice(-2); // e.g. "24"
+    const stateYearPrefix = `${stateCode}${year}-${gender}`;
+
+    // Count how many users already have this prefix
+    const similarUsersCount = await User.countDocuments({
+      phcode: { $regex: `^${stateYearPrefix}` },
+    });
+
+    const paddedIndex = String(similarUsersCount + 1).padStart(4, '0'); // e.g. "0001"
+
+    const phcode = `${stateYearPrefix}${paddedIndex}`; // e.g. "ABJ24-M0001"
 
     const user = new User({
       firstname,
       lastname,
       email,
       phcode,
+      gender,
+      stateCode,
       emailVerified: false,
     });
 
@@ -36,6 +58,7 @@ const registerUser = async (req, res) => {
       needsVerification: true,
       nextStep: "verifyEmail",
       email: user.email,
+      phcode: user.phcode,
       user,
     });
   } catch (err) {
@@ -49,7 +72,7 @@ const loginUser = async (req, res) => {
   try {
     const { phcode, password } = req.body;
 
-    const user = await User.findOne({ phcode });
+    const user = await User.findOne({ phcode: phcode.toUpperCase() });
     if (!user) return res.status(400).json({ message: "Invalid phcode or password" });
 
      const { token } = await verifyPasswordAndGenerateToken(user, password);
@@ -58,6 +81,8 @@ const loginUser = async (req, res) => {
      message: "Login successful",
      token,
      user,
+     email: user.email,
+     phcode: user.phcode,
     });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -209,4 +234,29 @@ const resetPasswordWithToken = async (req, res) => {
 
 
 
-module.exports = { registerUser, loginUser, resetUserPassword, forgotPassword, resetPasswordWithToken, verifyEmailOtp, resendEmailOtp };
+
+const forgotPHCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User with this email does not exist' });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER, // Make sure this is set in your .env
+      to: user.email,
+      subject: 'Your PHCode',
+      text: `Hello ${user.firstname},\n\nYour PHCode is: ${user.phcode}\n\nPlease keep it secure.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: 'PHCode has been sent to your email' });
+  } catch (err) {
+    console.error('Error sending PHCode email:', err);
+    res.status(500).json({ message: 'Failed to send PHCode. Please try again later.' });
+  }
+};
+
+
+module.exports = { registerUser, loginUser, resetUserPassword, forgotPassword, resetPasswordWithToken, verifyEmailOtp, resendEmailOtp, forgotPHCode };

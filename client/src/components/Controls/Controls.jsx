@@ -10,6 +10,7 @@ import {
   MdAddReaction
 } from 'react-icons/md';
 import { PiRecordFill, PiStopFill } from 'react-icons/pi';
+import { FaUserFriends } from 'react-icons/fa';
 import Spinner from '../Spinner/Spinner';
 import Picker from 'emoji-picker-react';
 import socket from '../../utils/socket/socket';
@@ -34,6 +35,7 @@ const Controls = ({
   setSelectedMicrophone,
   roomId,
   meId,
+  participants = [],
 }) => {
   const [cameras, setCameras] = useState([]);
   const [microphones, setMicrophones] = useState([]);
@@ -43,11 +45,13 @@ const Controls = ({
   const [showCamMenu, setShowCamMenu] = useState(false);
   const [showMicMenu, setShowMicMenu] = useState(false);
   const [showMeetingPicker, setShowMeetingPicker] = useState(false);
+  const [showList, setShowList] = useState(false);
 
 
   const camMenuRef = useRef();
   const micMenuRef = useRef();
   const pickerRef = useRef();
+  const listRef = useRef();
 
   // Fetch devices
   useEffect(() => {
@@ -83,7 +87,10 @@ const Controls = ({
       }
       if (pickerRef.current && !pickerRef.current.contains(e.target)) {
       setShowMeetingPicker(false);
-    }
+      }
+      if (listRef.current && !listRef.current.contains(e.target)) {
+        setShowList(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -159,6 +166,60 @@ const Controls = ({
                 </option>
               ))}
             </select>
+          </div>
+        )}
+      </div>
+
+      {/* Participants Control */}
+       <div className="relative" ref={listRef}>
+        <button
+          onClick={() => setShowList(v => !v)}
+          className="relative p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white focus:outline-none"
+        >
+          <FaUserFriends size={24} />
+          {participants.length > 0 && (
+            <span
+              className="
+                absolute -top-1 -right-1 inline-flex
+                items-center justify-center
+                w-5 h-5 text-xs font-bold
+                text-white bg-red-600 rounded-full
+              "
+            >
+              {participants.length}
+            </span>
+          )}
+        </button>
+
+        {showList && (
+          <div
+            className="
+              absolute -right-25 mt-2 w-60 max-h-64
+              overflow-y-auto bg-white text-black
+              shadow-lg rounded-lg z-50
+            "
+          >
+            <ul>
+             {participants.map(({ user }) => (
+                <li
+                  key={user._id}
+                  className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-100"
+                >
+                  {user.image
+                    ? <img
+                        src={user.image}
+                        className="w-6 h-6 rounded-full"
+                        alt={user.email}
+                      />
+                    : <div className="w-6 h-6 bg-gray-300 rounded-full" />
+                  }
+                  <div className="flex flex-col">
+                    <span className="text-sm">{user.username}</span>
+                    <span className="text-xs text-gray-500 italic">{user.email}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

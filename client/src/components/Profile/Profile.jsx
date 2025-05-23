@@ -151,7 +151,7 @@ const Profile = () => {
         {formatTimestamp(nextMeeting.date)}
       </p>
     ) : (
-      <p className="text-lg italic">You have no upcoming meetings.</p>
+      <p className="text-sm italic text-gray-500">You have no upcoming meetings.</p>
     )}
   </div>
 

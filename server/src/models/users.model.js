@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
     username: { type: String, unique: true, sparse: true, }, // Ensure field exists
     email: { type: String, required: true, unique: true },
     phcode: { type: String, required: true },
+    stateCode: { type: String, required: true }, // New field
+    gender: { type: String, enum: ['M', 'F'], required: true }, 
     phone: { type: String, unique: true, sparse: true, }, // Ensure field exists
     password: { type: String, required: true },
     bio: { type: String, default: '' },

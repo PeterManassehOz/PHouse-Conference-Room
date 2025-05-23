@@ -12,7 +12,8 @@ const Signup = () => {
     firstname: yup.string().required('First name is required'),
     lastname: yup.string().required('Last name is required'),
     email: yup.string().email('Invalid email').required('Email is required'),
-    phcode: yup.string().required('PH code is required'),
+    stateCode: yup.string().required('State code is required'),
+    gender: yup.string().required('Gender is required'),
     password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
     confirmPassword: yup.string().oneOf([yup.ref('password'), null], 'Passwords must match').required('Confirm password is required'),
     terms: yup.boolean().oneOf([true], 'You must agree to the terms and conditions'),
@@ -28,19 +29,26 @@ const Signup = () => {
 
 
   const onSubmit = async (data) => {
-  
-
     try {
       const response = await registerUser(data).unwrap();
       localStorage.setItem('token', response.token);
-      localStorage.setItem('phcode', data.phcode);
-      localStorage.setItem('email', data.email);
+      localStorage.setItem('phcode', response.phcode);
+      localStorage.setItem('email', response.email);
       console.log(data);
       if (response.user && response.user._id) {
-        localStorage.setItem('userId', response.user._id);  // Assuming `id` is the field you need
+        localStorage.setItem('userId', response.user._id); 
       }
       
       toast.success('Signup successful! Please verify your email.');
+
+      setTimeout(() => {
+      toast.info(`Your PHCode is: ${response.phcode}`, {
+        position: "top-right",
+        autoClose: 5000,
+        theme: darkMode ? "dark" : "light",
+      });
+      }, 30000);
+      
       navigate('/verify-email');
     } catch (error) {
       console.error(error);
@@ -83,10 +91,20 @@ const Signup = () => {
         <input 
           className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
           type="text" 
-          placeholder="PH Code" 
-          {...register("phcode")} 
+          placeholder="State Code" 
+          {...register("stateCode")} 
         />
-        {errors.phcode && <p className="text-red-500 text-sm">{errors.phcode.message}</p>}
+        {errors.stateCode && <p className="text-red-500 text-sm">{errors.stateCode.message}</p>}
+
+        <select
+          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          {...register("gender")}
+        >
+          <option value="">Select Gender</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+        {errors.gender && <p className="text-red-500 text-sm">{errors.gender.message}</p>}
 
 
         <input 
@@ -121,7 +139,7 @@ const Signup = () => {
         </button>
 
         <div className={`text-center mt-4 ${darkMode ? "text-white" : "text-gray-600" }`}>
-          Have an account? <Link to="/login" className={`${darkMode ? "text-blue-900" : "text-blue-900" }`}>Log in</Link>
+          Have an account? <Link to="/login" className={`${darkMode ? "text-blue-500" : "text-blue-800" }`}>Log in</Link>
         </div>
       </form>
     </div>
