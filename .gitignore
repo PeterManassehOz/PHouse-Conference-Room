@@ -1,2 +1,5 @@
 # .gitignore
 /server/credentials.json
+/server/.env
+/server/node_modules
+/server/uploads

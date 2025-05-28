@@ -10,7 +10,7 @@ const PreviousMeetings = () => {
   const darkMode = useSelector(s => s.theme.darkMode);
   const { data: meetings = [], isLoading, isError } = useGetMyMeetingsQuery();
   if (isLoading) return <Spinner />;
-  if (isError)   return <p className="text-red-500 text-center">Error loading meetings.</p>;
+  if (isError)   return <p className="text-red-500 text-center mt-10">Error loading meetings.</p>;
 
   const now = new Date();
   const previous = meetings.filter(m => new Date(m.date) < now);

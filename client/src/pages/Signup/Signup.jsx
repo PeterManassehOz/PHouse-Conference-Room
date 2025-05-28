@@ -88,13 +88,53 @@ const Signup = () => {
         />
         {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
 
-        <input 
-          className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
-          type="text" 
-          placeholder="State Code" 
-          {...register("stateCode")} 
-        />
+        {/* State Code Select */}
+        <select
+          className={`w-full p-3 mb-3 rounded-md border-none 
+            focus:ring-2 focus:ring-blue-200 focus:outline-none 
+            ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}
+          {...register("stateCode")}
+        >
+          <option value="">Select State</option>
+          <option value="ABI">Abia</option>
+          <option value="ADA">Adamawa</option>
+          <option value="AKW">Akwa Ibom</option>
+          <option value="ANA">Anambra</option>
+          <option value="BAU">Bauchi</option>
+          <option value="BAY">Bayelsa</option>
+          <option value="BEN">Benue</option>
+          <option value="BOR">Borno</option>
+          <option value="CRR">Cross River</option>
+          <option value="DEL">Delta</option>
+          <option value="EBO">Ebonyi</option>
+          <option value="EDO">Edo</option>
+          <option value="EKI">Ekiti</option>
+          <option value="ENU">Enugu</option>
+          <option value="GOM">Gombe</option>
+          <option value="IMO">Imo</option>
+          <option value="JIG">Jigawa</option>
+          <option value="KAD">Kaduna</option>
+          <option value="KAN">Kano</option>
+          <option value="KAT">Katsina</option>
+          <option value="KEB">Kebbi</option>
+          <option value="KOG">Kogi</option>
+          <option value="KWA">Kwara</option>
+          <option value="LAG">Lagos</option>
+          <option value="NAS">Nasarawa</option>
+          <option value="NIG">Niger</option>
+          <option value="OGU">Ogun</option>
+          <option value="OND">Ondo</option>
+          <option value="OSU">Osun</option>
+          <option value="OYO">Oyo</option>
+          <option value="PLA">Plateau</option>
+          <option value="RIV">Rivers</option>
+          <option value="SOK">Sokoto</option>
+          <option value="TAR">Taraba</option>
+          <option value="YOB">Yobe</option>
+          <option value="ZAM">Zamfara</option>
+        </select>
         {errors.stateCode && <p className="text-red-500 text-sm">{errors.stateCode.message}</p>}
+
 
         <select
           className={`w-full p-3 mb-3 rounded-md border-none focus:ring-2 focus:ring-blue-200 focus:outline-none ${darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}`}

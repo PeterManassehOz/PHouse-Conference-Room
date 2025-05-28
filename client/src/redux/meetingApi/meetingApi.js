@@ -94,6 +94,19 @@ export const meetingApi = createApi({
       }),
       invalidatesTags: ['Chat'],
     }),
+    postChatFile: builder.mutation({
+      // POST /:id/chat/file
+      query: ({ meetingId, file }) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return {
+          url: `/${meetingId}/chat/file`,
+          method: 'POST',
+          body: formData,
+        };
+      },
+      invalidatesTags: ['Chat'],
+    }),
     getMeetingById: builder.query({
     query: (id) => `/${id}`,
     transformResponse: (response) => {
@@ -132,8 +145,8 @@ export const meetingApi = createApi({
         method: 'POST'
       }),
       invalidatesTags: ['Meeting']
-    }),
+    }),  
   }),
 });
 
-export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useGetChatQuery, useEditChatMutation, useDeleteChatMutation, useGetMeetingByIdQuery, useLeaveMeetingMutation} = meetingApi;
+export const { useGetInvitesQuery, useRespondInviteMutation, useGetUpcomingQuery, useGetMyMeetingsQuery, useScheduleMeetingMutation, useDeleteMeetingMutation, useStartMeetingMutation, useJoinMeetingMutation, useGetChatQuery, useEditChatMutation, useDeleteChatMutation,   usePostChatFileMutation, useGetMeetingByIdQuery, useLeaveMeetingMutation} = meetingApi;

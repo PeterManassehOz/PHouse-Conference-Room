@@ -5,6 +5,10 @@ const ChatMessage = require('./src/models/chatMessage.model');
 let io;
 
 function initializeSocket(server) {
+  const userSocketMap = new Map();
+  const userNameMap = new Map();
+
+  console.log('Initializing Socket.io...');
   io = new Server(server, {
     cors: {
       origin: ['http://localhost:5173', 'http://localhost:5174'],
@@ -12,12 +16,70 @@ function initializeSocket(server) {
     }
   });
 
+  function forwardToUser(eventName, { roomId, to, ...payload }) {
+    const targetSocket = userSocketMap.get(to);
+    if (targetSocket) {
+      io.to(targetSocket).emit(eventName, payload);
+    }
+  }
+
   io.on('connection', socket => {
     console.log('Client connected:', socket.id);
 
-    // Allow a client to join its meeting rooms
-    socket.on('join-meeting-room', ({ meetingId }) => {
+    socket.on('join-meeting-room', ({ meetingId, userId, username }) => {
+      console.log('← join-meeting-room', { meetingId, userId, username });
+      if (!userId || !username) {
+        console.warn('⚠️ Ignoring invalid join:', { meetingId, userId, username });
+        return;
+      }
+
+      userSocketMap.set(userId, socket.id);
+      userNameMap.set(userId, username);
       socket.join(meetingId);
+
+      socket.to(meetingId).emit('user-joined-meeting', {
+        userId,
+        username,
+        timestamp: Date.now()
+      });
+
+      const existing = [];
+      for (const [otherId, sid] of userSocketMap.entries()) {
+        if (otherId === userId) continue;
+        const s = io.sockets.sockets.get(sid);
+        if (s && s.rooms.has(meetingId)) {
+          existing.push({
+            userId: otherId,
+            username: userNameMap.get(otherId)
+          });
+        }
+      }
+
+      socket.emit('existing-peers', existing);
+      console.log('→ server → existing-peers:', existing);
+    });
+
+    // 🧠 WebRTC signaling logic – placed here for relevance
+    socket.on('offer', data => {
+      console.log('← offer', data);
+      forwardToUser('offer', data);
+    });
+
+    socket.on('answer', data => {
+      console.log('← answer', data);
+      forwardToUser('answer', data);
+    });
+
+    socket.on('ice-candidate', data => {
+      console.log('← ice-candidate', data);
+      forwardToUser('ice-candidate', data);
+    });
+
+    socket.on('get-peers', async (meetingId) => {
+      const members = Array.from(userSocketMap.entries())
+        .filter(([uid, sid]) => sid !== socket.id && io.sockets.sockets.get(sid)?.rooms.has(meetingId))
+        .map(([uid]) => uid);
+      socket.emit('existing-peers', members);
     });
 
     socket.on('send-message', async ({ meetingId, text, userId, username, tempId }) => {
@@ -60,12 +122,29 @@ function initializeSocket(server) {
       try {
         const msg = await ChatMessage.findByIdAndUpdate(
           messageId,
-          { $push: { reactions: { user: userId, emoji } } },
+          [
+            {
+              $set: {
+                reactions: {
+                  $concatArrays: [
+                    {
+                      $filter: {
+                        input: '$reactions',
+                        cond: { $ne: ['$$this.user', userId] }
+                      }
+                    },
+                    [{ user: userId, emoji }]
+                  ]
+                }
+              }
+            }
+          ],
           { new: true }
         )
-          .populate('reactions.user', 'username image')
-          .populate('user', 'username image');
+        .populate('reactions.user', 'username image')
+        .populate('user', 'username image');
 
+        if (!msg) return;
         io.to(msg.meetingId.toString()).emit('message-reaction', msg);
       } catch (err) {
         console.error('❌ [socket.js] Error in react-to-message:', err);
@@ -73,17 +152,29 @@ function initializeSocket(server) {
       }
     });
 
-    socket.on('leave-meeting-room', ({ meetingId }) => {
+    socket.on('leave-meeting-room', ({ meetingId, userId, username }) => {
       socket.leave(meetingId);
+
+      io.to(meetingId).emit('user-left-meeting', {
+        userId,
+        username,
+        timestamp: Date.now()
+      });
     });
 
     socket.on('disconnect', () => {
+      for (const [userId, sid] of userSocketMap) {
+        if (sid === socket.id) {
+          userSocketMap.delete(userId);
+          userNameMap.delete(userId);
+          break;
+        }
+      }
       console.log('Client disconnected:', socket.id);
     });
   });
 }
 
-// Getter for io after initialization
 function getIO() {
   if (!io) {
     throw new Error("Socket.io is not initialized");
@@ -92,6 +183,4 @@ function getIO() {
 }
 
 module.exports = { initializeSocket, getIO };
-
-
 

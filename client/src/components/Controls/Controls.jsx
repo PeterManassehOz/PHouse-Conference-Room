@@ -14,6 +14,8 @@ import { FaUserFriends } from 'react-icons/fa';
 import Spinner from '../Spinner/Spinner';
 import Picker from 'emoji-picker-react';
 import socket from '../../utils/socket/socket';
+import { FaPersonWalkingDashedLineArrowRight } from "react-icons/fa6";
+import { SlCallEnd } from "react-icons/sl";
 
 
 
@@ -36,6 +38,9 @@ const Controls = ({
   roomId,
   meId,
   participants = [],
+  leaveMeeting,
+  endMeeting,
+  isHost
 }) => {
   const [cameras, setCameras] = useState([]);
   const [microphones, setMicrophones] = useState([]);
@@ -112,13 +117,13 @@ const Controls = ({
       <div className="relative flex items-center bg-[#00013d] hover:bg-[#03055B] rounded-full" ref={micMenuRef}>
         <button
           onClick={() => setIsMuted(prev => !prev)}
-          className="p-2 rounded-full text-white transition focus:outline-none"
+          className="p-2 rounded-full text-white transition focus:outline-none cursor-pointer"
         >
           {isMuted ? <MdMicOff size={24} /> : <MdMic size={24} />}
         </button>
         <button
           onClick={e => { e.stopPropagation(); setShowMicMenu(v => !v); }}
-          className="rounded-full text-white focus:outline-none"
+          className="rounded-full text-white focus:outline-none cursor-pointer"
         >
           <MdArrowDropDown size={20} />
         </button>
@@ -143,13 +148,13 @@ const Controls = ({
       <div className="relative flex items-center bg-[#00013d] hover:bg-[#03055B] rounded-full" ref={camMenuRef}>
         <button
           onClick={() => setIsVideoOff(prev => !prev)}
-          className="p-2 rounded-full text-white transition focus:outline-none"
+          className="p-2 rounded-full text-white transition focus:outline-none cursor-pointer"
         >
           {isVideoOff ? <MdVideocamOff size={24} /> : <MdVideocam size={24} />}
         </button>
         <button
           onClick={e => { e.stopPropagation(); setShowCamMenu(v => !v); }}
-          className="rounded-full text-white focus:outline-none"
+          className="rounded-full text-white focus:outline-none cursor-pointer"
         >
           <MdArrowDropDown size={20} />
         </button>
@@ -174,7 +179,7 @@ const Controls = ({
        <div className="relative" ref={listRef}>
         <button
           onClick={() => setShowList(v => !v)}
-          className="relative p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white focus:outline-none"
+          className="relative p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white focus:outline-none cursor-pointer"
         >
           <FaUserFriends size={24} />
           {participants.length > 0 && (
@@ -224,10 +229,34 @@ const Controls = ({
         )}
       </div>
 
+
+      {/* Leave Meeting Button */}
+      <div className="p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white transition focus:outline-none cursor-pointer">
+        <FaPersonWalkingDashedLineArrowRight 
+          onClick={leaveMeeting}
+          size={24} 
+          title="Leave Meeting" 
+        />
+      </div>
+
+      {/* End Meeting Button */}
+      {isHost && (
+        <div className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white transition focus:outline-none cursor-pointer">
+          <SlCallEnd 
+            onClick={endMeeting}
+            size={24}
+            className="text-white"
+            title="End Meeting" 
+          />
+        </div>
+      )}
+
+      
+
       {/* Screen Share */}
       <button
         onClick={startScreenShare}
-        className="p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white transition focus:outline-none"
+        className="p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white transition focus:outline-none cursor-pointer"
       >
         {isScreenSharing ? <MdStopScreenShare size={24} /> : <MdScreenShare size={24} />}
       </button>
@@ -263,7 +292,7 @@ const Controls = ({
       {/* Recording Control */}
       <button
         onClick={isRecording ? stopRecording : startRecording}
-        className={`p-3 rounded-full ${isRecording ? 'bg-red-600' : 'bg-green-600'} hover:bg-opacity-80 text-white transition focus:outline-none`}
+        className={`p-3 rounded-full cursor-pointer ${isRecording ? 'bg-red-600' : 'bg-green-600'} hover:bg-opacity-80 text-white transition focus:outline-none`}
       >
         {isUploading ? <Spinner /> : isRecording ? <PiStopFill size={24} /> : <PiRecordFill size={24} />}
       </button>

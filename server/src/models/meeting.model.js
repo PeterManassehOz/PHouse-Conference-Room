@@ -5,7 +5,7 @@ const participantSchema = new Schema({
   user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   status:    { type: String, enum: ['Pending','Accepted','Declined'], default: 'Pending' },
   updatedAt: { type: Date, default: Date.now }
-});
+}, { _id: false });
 
 const reactionSchema = new Schema({
   user:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

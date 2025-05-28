@@ -41,7 +41,10 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(morgan('combined', { stream: accessLogStream }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'src/uploads'))); // Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'src/uploads')));
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 const authRoutes = require('./src/routes/auth.route');
 const userRoutes = require('./src/routes/users.route');

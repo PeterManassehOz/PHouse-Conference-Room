@@ -94,7 +94,7 @@ exports.startMeeting = async (req, res) => {
       title:      req.body.title     || 'Instant Meeting',
       description:req.body.description || '',
       date:       new Date(),                 // start immediately
-      participants: [],                       // nobody invited yet
+      participants: [{ user: req.user._id, status: 'Accepted', updatedAt: new Date() }],
       createdBy:  req.user._id,
       hostId:     req.user._id
     });
@@ -128,9 +128,51 @@ exports.startMeeting = async (req, res) => {
 };
 
 
+exports.joinMeeting = async (req, res) => {
+  try {
+    const meetingId = req.params.id;
+    const userId    = req.user._id;
+
+    // only add if this user is not already in participants
+    const updated = await Meeting.findOneAndUpdate(
+      {
+        _id: meetingId,
+        'participants.user': { $ne: userId }  // only if user not present
+      },
+      {
+        $push: {
+          participants: {
+            user: userId,
+            status: 'Accepted',
+            updatedAt: new Date()
+          }
+        }
+      },
+      { new: true, runValidators: true }
+    ).populate('participants.user', 'username email image');
+
+    // if user was already present or meeting not found
+    if (!updated) {
+      const existing = await Meeting.findById(meetingId)
+        .populate('participants.user', 'username email image');
+
+      if (!existing) {
+        return res.status(404).json({ message: 'Meeting not found' });
+      }
+
+      return res.json({ meetingId, participants: existing.participants });
+    }
+
+    res.json({ meetingId, participants: updated.participants });
+  } catch (err) {
+    console.error('Error in joinMeeting:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 // controllers/meeting.controller.js
-exports.joinMeeting = async (req, res) => {
+/*exports.joinMeeting = async (req, res) => {
   try {
     const meetingId = req.params.id;
     const userId    = req.user._id;
@@ -158,7 +200,7 @@ exports.joinMeeting = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
+*/
 
 
 
