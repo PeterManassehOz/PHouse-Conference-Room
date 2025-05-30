@@ -95,6 +95,7 @@ const Room = () => {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
   const [hasLocalStream, setHasLocalStream] = useState(false);
   const [isMuted, setIsMuted]                 = useState(false);
   const [isVideoOff, setIsVideoOff]           = useState(false);
@@ -185,60 +186,14 @@ const Room = () => {
 
   // video on/off
   useEffect(() => {
-  const stream = localStreamRef.current;
-  if (!stream) return;
-  stream.getVideoTracks().forEach(track => {
-    track.enabled = !isVideoOff;
-  });
-  }, [isVideoOff]);
-
-
-  const startScreenShare = async () => {
-  try {
-    if (isScreenSharing) {
-      // Stop share → revert to camera
-      const camTrack = localStreamRef.current.getVideoTracks()[0];
-      Object.values(peerConnections.current).forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track.kind === 'video');
-        if (sender) sender.replaceTrack(camTrack);
-      });
-
-      setIsScreenSharing(false);
-      toast.info('Stopped screen share');
-      return;
-    }
-
-    // Start screen capture
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-    const screenTrack = screenStream.getVideoTracks()[0];
-
-    // Broadcast screen track to all peers
-    Object.values(peerConnections.current).forEach(pc => {
-      const sender = pc.getSenders().find(s => s.track.kind === 'video');
-      if (sender) sender.replaceTrack(screenTrack);
+    const stream = localStreamRef.current;
+    if (!stream) return;                // <-- guard
+    const tracks = stream.getVideoTracks();
+    if (!tracks.length) return;         // <-- guard
+    tracks.forEach(track => {
+      track.enabled = !isVideoOff;
     });
-
-    // Locally preview the screen
-    setIsScreenSharing(true);
-    toast.success('Screen sharing started');
-
-    // When user manually stops share, revert automatically
-    screenTrack.onended = () => {
-      const camTrack = localStreamRef.current.getVideoTracks()[0];
-      Object.values(peerConnections.current).forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track.kind === 'video');
-        if (sender) sender.replaceTrack(camTrack);
-      });
-
-      setIsScreenSharing(false);
-      toast.info('Screen share ended');
-    };
-  } catch (err) {
-    console.error('Screen share failed', err);
-    toast.error('Screen share failed');
-  }
-  };
-
+  }, [isVideoOff]);
 
 
   // Start Recording (Separate Stream)
@@ -315,9 +270,11 @@ const Room = () => {
     });
 
     // (speech-detection stays the same)
+     if (stream && stream.getAudioTracks().length > 0) {
     detectSpeech(stream, isSpeaking => {
       if (isSpeaking) setActiveSpeakerId(userId);
     });
+   }
   }, []);
 
 
@@ -326,6 +283,62 @@ const Room = () => {
     peerConnections.current[userId]?.close();
     delete peerConnections.current[userId];
   }, []);
+
+
+   const stopScreenShare = useCallback(() => {
+  // 1) stop the actual screen tracks
+  if (screenStreamRef.current) {
+    screenStreamRef.current.getTracks().forEach(t => t.stop());
+    screenStreamRef.current = null;
+  }
+
+  // 2) restore camera
+  const camStream = localStreamRef.current;
+  if (!camStream) {
+    console.warn("No local camera stream to restore");
+    setIsScreenSharing(false);
+    return;
+  }
+  const camTrack = camStream.getVideoTracks()[0];
+  if (camTrack) {
+    Object.values(peerConnections.current).forEach(pc => {
+      const sender = pc.getSenders().find(s => s.track.kind === 'video');
+      if (sender) sender.replaceTrack(camTrack);
+    });
+  }
+
+  addPeer(meId, camStream, userProfile?.username || "");
+  setIsScreenSharing(false);
+  toast.info('Stopped screen share');
+   }, [addPeer, meId, userProfile?.username]);
+
+
+
+    const startScreenShare = useCallback(async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      screenStreamRef.current = screenStream;
+
+      const screenTrack = screenStream.getVideoTracks()[0];
+      Object.values(peerConnections.current).forEach(pc => {
+        const sender = pc.getSenders().find(s => s.track.kind === 'video');
+        if (sender) sender.replaceTrack(screenTrack);
+      });
+
+      addPeer(meId, screenStream, userProfile?.username);
+      setIsScreenSharing(true);
+      toast.success('Screen sharing started');
+
+      // hook up the native stop events to our stop handler
+      screenTrack.onended   = stopScreenShare;
+      screenStream.oninactive = stopScreenShare;
+    } catch (err) {
+      console.error('Screen share failed', err);
+      toast.error('Screen share failed');
+    }
+  }, [addPeer, meId, userProfile?.username, stopScreenShare]);
+
+ 
 
   const waitingPeers = useRef([]);  // will hold [{ otherId, initiator }]
 
@@ -391,6 +404,10 @@ const Room = () => {
 
 
   const detectSpeech = (stream, onSpeaking) => {
+  if (!stream || !stream.getAudioTracks().length) {
+    console.warn('No audio stream available for speech detection');
+    return;
+  }
   const audioContext = new AudioContext();
   const analyser = audioContext.createAnalyser();
   const source = audioContext.createMediaStreamSource(stream);
@@ -683,48 +700,48 @@ const videos = peers.map(p => ({
 
         
       {/*Video Grid and Reactions*/}
-        <div className="flex flex-col items-center w-full h-full p-4 bg-gray-100 dark:bg-gray-900 overflow-y-auto">
-          <div 
-           className="grid gap-4 w-full"
-           style={{ gridTemplateColumns: `repeat(${videos.length}, minmax(0, 1fr))` }}
-          >
-             {videos.map(({ userId, stream, isLocal, label, isSpeaking }) => (
-              <VideoPlayer
-                key={userId}
-                stream={stream ?? null}
-                isLocal={isLocal}
-                userId={userId}
-                label={label ?? 'Unknown'}
-                isSpeaking={isSpeaking}
-              />
-            ))}
-          </div>
-
-          {hasLocalStream && (
-            <audio
-              ref={el => {
-                if (el) el.srcObject = localStreamRef.current;
-              }}
-              autoPlay
-              className="hidden"
-              controls
+      <div className="flex flex-col items-center w-full h-full p-4 bg-gray-100 dark:bg-gray-900 overflow-y-auto">
+        <div 
+          className="grid gap-4 w-full"
+          style={{ gridTemplateColumns: `repeat(${videos.length}, minmax(0, 1fr))` }}
+        >
+            {videos.map(({ userId, stream, isLocal, label, isSpeaking }) => (
+            <VideoPlayer
+              key={userId}
+              stream={stream ?? null}
+              isLocal={isLocal}
+              userId={userId}
+              label={label ?? 'Unknown'}
+              isSpeaking={isSpeaking}
             />
-          )}
-
-          
-          {meetingReactions.map((r, i) => (
-                  <span
-                    key={i}
-                    className="absolute animate-float text-3xl"
-                    style={{
-                      top: `${20 + i*10}%`,
-                      left: `${50 + (i%2 ? -10 : 10)}%`
-                    }}
-                  >
-                    {r.emoji}
-                  </span>
           ))}
         </div>
+
+        {hasLocalStream && (
+          <audio
+            ref={el => {
+              if (el) el.srcObject = localStreamRef.current;
+            }}
+            autoPlay
+            className="hidden"
+            controls
+          />
+        )}
+
+        
+        {meetingReactions.map((r, i) => (
+                <span
+                  key={i}
+                  className="absolute animate-float text-3xl"
+                  style={{
+                    top: `${20 + i*10}%`,
+                    left: `${50 + (i%2 ? -10 : 10)}%`
+                  }}
+                >
+                  {r.emoji}
+                </span>
+        ))}
+      </div>
         
 
       {/* Chat & Controls */}
@@ -752,6 +769,7 @@ const videos = peers.map(p => ({
                 setIsMuted={setIsMuted}
                 setIsVideoOff={setIsVideoOff}
                 startScreenShare={startScreenShare}
+                stopScreenShare={stopScreenShare}
                 isRecording={isRecording}
                 startRecording={startRecording}
                 stopRecording={stopRecording}

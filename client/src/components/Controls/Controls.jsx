@@ -29,6 +29,7 @@ const Controls = ({
   setIsMuted,
   setIsVideoOff,
   startScreenShare,
+  stopScreenShare,
   isRecording,
   startRecording,
   stopRecording,
@@ -255,11 +256,13 @@ const Controls = ({
 
       {/* Screen Share */}
       <button
-        onClick={startScreenShare}
+        onClick={isScreenSharing ? stopScreenShare : startScreenShare}
         className="p-3 rounded-full bg-[#00013d] hover:bg-[#03055B] text-white transition focus:outline-none cursor-pointer"
       >
         {isScreenSharing ? <MdStopScreenShare size={24} /> : <MdScreenShare size={24} />}
       </button>
+
+
        
        {/* Meeting Reaction Button */}
       <div className="relative">
