@@ -18,7 +18,6 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const { createWriteStream } = require('fs');
-const https = require('https'); // ✅ Use HTTPS instead of HTTP
 const { initializeSocket } = require('./socket');
 const { createMediasoupWorkers } = require('./src/utils/mediasoupServer');
 
@@ -28,8 +27,7 @@ app.use((req, res, next) => {
   const allowed = [
     'http://localhost:5173',
     'http://localhost:5174',
-    'https://192.168.121.113:5173',
-    'https://192.168.121.113:5000',     
+    'https://p-house-conference-room.vercel.app',
   ];
   if (allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -44,7 +42,9 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
-app.use(morgan('combined', { stream: createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' }) }));
+app.use(morgan('combined', {
+  stream: createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' })
+}));
 app.use('/uploads', express.static(path.join(__dirname, 'src/uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -77,18 +77,12 @@ async function main() {
 
 main()
   .then(() => {
-    // ✅ HTTPS Options
-    const options = {
-      key:  fs.readFileSync(path.resolve(__dirname, '192.168.121.113+1-key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '192.168.121.113+1.pem')),
-    };
-
-    const server = https.createServer(options, app); // ✅ Use HTTPS here
     createMediasoupWorkers().then(() => {
-      initializeSocket(server);
-      server.listen(process.env.PORT, () => {
-        console.log(`🚀 HTTPS + Socket listening on https://192.168.121.113+1.pem:${process.env.PORT}`);
+      const server = app.listen(process.env.PORT, () => {
+        console.log(`🚀 Server is listening on port ${process.env.PORT}`);
       });
+
+      initializeSocket(server);
     });
   })
   .catch((err) => {
