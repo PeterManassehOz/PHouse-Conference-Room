@@ -23,6 +23,7 @@
     "mediasoup": "^3.16.0",
     "mongoose": "^8.14.2",
     "morgan": "^1.10.0",
+    "multer": "^2.0.1",
     "node-schedule": "^2.1.1",
     "nodemailer": "^7.0.3",
     "socket.io": "^4.8.1"
