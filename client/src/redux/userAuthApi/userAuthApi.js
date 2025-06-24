@@ -1,8 +1,14 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
+
+// read the env var
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+// log it so you know what the running code is actually using
+console.log('🛰️ API_BASE is:', API_BASE);
+
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'http://localhost:5000/auth',
-  credentials: 'include',
+  baseUrl: `${API_BASE}/auth`,
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -18,45 +24,45 @@ export const userAuthApi = createApi({
     baseQuery,
     endpoints: (builder) => ({
 
-      registerUser: builder.mutation({
-        query: (userData) => ({
-          url: '/signup',
-          method: 'POST',
-          body: userData,
-        }),
+    registerUser: builder.mutation({
+      query: (userData) => ({
+        url: '/signup',
+        method: 'POST',
+        body: userData,
       }),
+    }),
 
-      loginUser: builder.mutation({
-        query: (userData) => ({
-          url: '/login',
-          method: 'POST',
-          body: userData,
-        }),
+    loginUser: builder.mutation({
+      query: (userData) => ({
+        url: '/login',
+        method: 'POST',
+        body: userData,
       }),
+    }),
 
-       resetUserPassword: builder.mutation({
-            query: (userData) => ({
-            url: '/reset-password',
-            method: 'POST',
-            body: userData,
-            }),
-       }),
-
-        forgotPassword: builder.mutation({
-            query: (userData) => ({
-            url: '/forgot-password',
-            method: 'POST',
-            body: userData,
-            }),
+    resetUserPassword: builder.mutation({
+        query: (userData) => ({
+        url: '/reset-password',
+        method: 'POST',
+        body: userData,
         }),
+    }),
 
-        resetPasswordWithToken: builder.mutation({
-            query: ({ token, ...userData }) => ({
-            url: `/reset-password/${token}`, // Insert token into URL
-            method: 'POST',
-            body: userData,
-            }),
+    forgotPassword: builder.mutation({
+        query: (userData) => ({
+        url: '/forgot-password',
+        method: 'POST',
+        body: userData,
         }),
+    }),
+
+    resetPasswordWithToken: builder.mutation({
+        query: ({ token, ...userData }) => ({
+        url: `/reset-password/${token}`, // Insert token into URL
+        method: 'POST',
+        body: userData,
+        }),
+    }),
 
 
     verifyEmailOtp: builder.mutation({

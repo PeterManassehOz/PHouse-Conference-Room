@@ -34,7 +34,7 @@ const Invite = () => {
 
   return (
     <div className="flex flex-wrap gap-5 p-4 mt-10">
-      {invites.map(meeting => {
+      {[...invites].reverse().map(meeting => {
         const me = meeting.participants.find(p => p.user === myId);
         const currentStatus = me?.status ?? 'Pending';
 

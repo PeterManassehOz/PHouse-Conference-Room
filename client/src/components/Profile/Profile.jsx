@@ -12,7 +12,6 @@ import Spinner from "../Spinner/Spinner";
 
 
 const Profile = () => {
-  
 
   // Validation Schema
   const schema = yup.object().shape({
@@ -46,7 +45,7 @@ const Profile = () => {
   const darkMode = useSelector((state) => state.theme.darkMode);
 
   const [updateProfile, { isLoading }] = useUpdateProfileMutation();
-   const { data: userProfile, isLoading: profileLoading, error } = useGetUserProfileQuery();
+   const { data: userProfile, isLoading: profileLoading, error, isError } = useGetUserProfileQuery();
 
      // 2) Upcoming meetings
   const { data: upcoming = [], isLoading: upcomingLoading } =
@@ -64,9 +63,10 @@ const Profile = () => {
     : msgDate.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const hour = new Date().getHours();
+  const now = new Date();
   const greeting =
-    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening";
+
 
 
      useEffect(() => {
@@ -131,8 +131,23 @@ const Profile = () => {
   }
 
   
-  if (profileLoading || upcomingLoading) return <Spinner />;
-  if (error) return <div className="text-red-500 text-center">Error loading profile.</div>;
+  if (profileLoading) return <Spinner />;
+  
+  if (isError) {
+  console.error(error);
+  return (
+    <div
+      className="min-h-screen bg-cover bg-center flex items-center justify-start"
+      style={{ backgroundImage: "url('/Authenticate.jpg')" }}
+    >
+      <p className="text-white font-bold text-2xl sm:text-4xl md:text-6xl bg-black/50 p-4 sm:p-6 m-6 sm:m-20 rounded-md max-w-sm sm:max-w-md">
+        Get authenticated to use Quorum.
+      </p>
+    </div>
+  );
+}
+
+
 
 
   return (
@@ -140,20 +155,29 @@ const Profile = () => {
   className={`min-h-screen p-6 flex flex-col gap-6 ${darkMode ? "bg-gray-900 text-white" : "bg-blue-100 text-gray-900"}`}
   >
    {/* ==== Greeting & Next Meeting ==== */}
-  <div className={`space-y-2 p-5 rounded-md ${darkMode ? "text-white bg-gray-800" : "text-black bg-white"}`}>
+    <div className={`p-5 rounded-md ${darkMode ? "text-white bg-gray-800" : "text-black bg-white"}`}>
+  <div className="flex justify-between items-center flex-wrap w-full">
     <h1 className="text-3xl font-bold">
-      {greeting}, {userProfile.username}
+      {greeting}, {userProfile?.username}
     </h1>
-    {nextMeeting ? (
-      <p className="text-lg">
-        Your next meeting:{" "}
-        <span className="font-semibold">{nextMeeting.title}</span> on{" "}
-        {formatTimestamp(nextMeeting.date)}
-      </p>
-    ) : (
-      <p className="text-sm italic text-gray-500">You have no upcoming meetings.</p>
-    )}
+    <span className="text-3xl font-semibold whitespace-nowrap">
+      {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    </span>
   </div>
+
+  {nextMeeting ? (
+    <p className="text-lg mt-2">
+      Your next meeting:{" "}
+      <span className="font-semibold">{nextMeeting.title}</span> on{" "}
+      {formatTimestamp(nextMeeting.date)}
+    </p>
+  ) : (
+    <p className="text-sm italic text-gray-500 mt-2">
+      You have no upcoming meetings.
+    </p>
+  )}
+</div>
+
 
   <div className="flex flex-col md:flex-row gap-6">
     {/* Profile Form */}
@@ -236,34 +260,32 @@ const Profile = () => {
 
 
       
-      {/* ==== Full-Width Scheduled Calls, Meetings, and Videos ==== */}
+      {/* ==== Upcoming Meetings ==== */}
       <div
         className={`w-full mt-6 p-6 mb-6 shadow-md rounded-md ${
           darkMode ? "bg-gray-800 text-white" : "bg-white text-black"
         }`}
       >
         <h2 className="text-xl font-semibold text-center mb-4">Upcoming Meetings</h2>
-        <div className="flex flex-wrap gap-4">
-          {upcoming.length > 0 ? (
-            upcoming.map((m) => (
-              <div
-                key={m._id}
-                className={`flex-1 min-w-[150px] p-4 rounded-md ${
-                  darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"
-                }`}
-              >
-                <h3 className="font-semibold">{m.title}</h3>
-                <p className="text-sm">
-                 {formatTimestamp(nextMeeting.date)}
-                </p>
-              </div>
-            ))
-          ) : (
-            <div className="w-full p-4 text-center text-gray-500">
-              No upcoming meeting.
-            </div>
+          {upcomingLoading ? (
+            <p className="text-center">Loading upcoming meetings…</p>
+              ) : upcoming && upcoming.length > 0 ? (
+                <div className="flex flex-wrap gap-4">
+                  {upcoming.map((m) => (
+                    <div
+                      key={m._id}
+                      className={`flex-1 min-w-[150px] p-4 rounded-md ${
+                        darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-black"
+                      }`}
+                    >
+                      <h3 className="font-semibold">{m.title}</h3>
+                      <p className="text-sm">{formatTimestamp(m.date)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center italic text-gray-500">You have no upcoming meetings.</p>
           )}
-        </div>
       </div>
   </div>
 

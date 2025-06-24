@@ -1,8 +1,13 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
+// read the env var
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+// log it so you know what the running code is actually using
+console.log('🛰️ API_BASE is:', API_BASE);
+
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'http://localhost:5000/meetings',
-  credentials: 'include',
+  baseUrl: `${API_BASE}/meetings`,
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -34,11 +39,11 @@ export const meetingApi = createApi({
       providesTags: ['Meeting'],
     }),
     getMyMeetings: builder.query({
-      query: () => '/meetings',
+      query: () => '/my-meetings',
     }),
     scheduleMeeting: builder.mutation({
       query: newM => ({
-        url: '/meetings',
+        url: '/schedule',
         method: 'POST',
         body: newM,
       }),
@@ -73,7 +78,7 @@ export const meetingApi = createApi({
       transformResponse: (msgs) => {
         return msgs.map(m => {
           if (m.user.image) {
-            m.user.image = `http://localhost:5000/uploads/${m.user.image.split("/").pop()}`
+            m.user.image = `${API_BASE}/uploads/${m.user.image.split("/").pop()}`
           }
           return m;
         });
@@ -114,13 +119,13 @@ export const meetingApi = createApi({
 
     // rewrite top‐level meeting.image if you need it
     const image = response.image
-      ? `http://localhost:5000/uploads/${response.image.split('/').pop()}?t=${timestamp}`
+      ? `${API_BASE}/uploads/${response.image.split('/').pop()}?t=${timestamp}`
       : null;
 
     // 🔄 rewrite every participant.user.image
     const participants = response.participants.map(p => {
       const img = p.user.image
-        ? `http://localhost:5000/uploads/${p.user.image.split('/').pop()}?t=${timestamp}`
+        ? `${API_BASE}/uploads/${p.user.image.split('/').pop()}?t=${timestamp}`
         : null;
       return {
         ...p,

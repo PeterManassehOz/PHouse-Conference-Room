@@ -212,8 +212,9 @@ exports.scheduleMeeting = async (req, res) => {
 
     // 1. Lookup users by their emails
     const users = await User.find({
-      email: { $in: participants.map(e => e.toLowerCase()) }
-    }).select('_id email');
+    email: { $in: participants.map(e => e.toLowerCase()) }
+    }).select('_id email emailNotifications firstname');
+
 
     const foundEmails = users.map(u => u.email.toLowerCase());
     const missing = participants.filter(e => !foundEmails.includes(e.toLowerCase()));
@@ -256,13 +257,16 @@ exports.scheduleMeeting = async (req, res) => {
 
     // 7. Send email invites to each participant
       const mailPromises = users
-      .filter(u => u.emailNotifications)  // ← only those opted in
+      .filter(u =>
+        u.emailNotifications                  &&           // only those opted in
+        u._id.toString() !== meeting.hostId    // never mail the host
+      )
       .map(u => transporter.sendMail({
           from: process.env.EMAIL_USER,
           to:   u.email,
           subject: `Invite: ${meeting.title}`,
            html: `
-          <p>Hi ${meeting.u},</p>
+          <p>Hi ${u.firstname},</p>
           <p>You’ve been invited to a meeting titled "<strong>${meeting.title}</strong>" on ${new Date(meeting.date).toLocaleString()}.</p>
           <p>
             <a href="${inviteUrl}">
@@ -271,6 +275,8 @@ exports.scheduleMeeting = async (req, res) => {
           </p>
         `
       }));
+      // Log how many emails we are sending
+      console.log(`Sending ${mailPromises.length} invite emails…`);
 
      await Promise.all(mailPromises);
 

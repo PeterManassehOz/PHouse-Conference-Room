@@ -1,8 +1,13 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
+// read the env var
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+// log it so you know what the running code is actually using
+console.log('🛰️ API_BASE is:', API_BASE);
+
 const baseQuery = fetchBaseQuery({ 
-  baseUrl: 'http://localhost:5000/users',
-  credentials: 'include',
+  baseUrl: `${API_BASE}/users`,
   prepareHeaders: (headers) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -19,7 +24,7 @@ export const profileAuthApi = createApi({
     baseQuery,
     tagTypes: ['Profile', 'Settings'], // Add this line
     endpoints: (builder) => ({
-        updateProfile: builder.mutation({
+    updateProfile: builder.mutation({
             query: (formData) => ({
               url: '/profile',
               method: 'PUT',
@@ -29,7 +34,7 @@ export const profileAuthApi = createApi({
               },
             }),
             invalidatesTags: ['Profile'], // This ensures the query is refetched after mutation
-          }),
+    }),
   
     getUserProfile: builder.query({
       query: () => ({
@@ -42,7 +47,7 @@ export const profileAuthApi = createApi({
 
         if (image) {
           const timestamp = new Date().getTime();
-          image = `http://localhost:5000/uploads/${response.image.split("/").pop()}?t=${timestamp}`;
+          image = `${API_BASE}/uploads/${response.image.split("/").pop()}?t=${timestamp}`;
         }
 
         // ✅ Return transformed response with image URL directly included
@@ -54,7 +59,7 @@ export const profileAuthApi = createApi({
     }),
 
     getUsers: builder.query({
-      query: () => '/users',
+      query: () => '/all-users',
     }),
 
     deleteUser: builder.mutation({

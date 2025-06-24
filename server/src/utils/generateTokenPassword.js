@@ -14,7 +14,7 @@ const generateTokenPassword = async (user, password) => {
 
         // Generate JWT token
         const token = jwt.sign(
-            { id: user._id, isAdmin: user.isAdmin },
+            { id: user._id, isAdmin: user.isAdmin, username: user.username },
             process.env.JWT_SECRET,
             { expiresIn: '1d' }
         );

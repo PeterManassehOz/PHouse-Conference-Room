@@ -20,7 +20,7 @@ const resolveImage = (imgPath) => {
   if (!imgPath) return '/profileIconBrown.jpeg';
   if (imgPath.startsWith('http')) return imgPath;
   const filename = imgPath.split('/').pop();
-  return `http://localhost:5000/uploads/${filename}`;
+  return `https://192.168.208.113:5000/uploads/${filename}`;
 };
 
 // Format timestamp for display
@@ -149,7 +149,7 @@ const Chat = ({ meetingId }) => {
                 user: {
                   ...r.user,
                   image: r.user.image
-                    ? `http://localhost:5000/uploads/${r.user.image.split('/').pop()}`
+                    ? `https://192.168.208.113:5000/uploads/${r.user.image.split('/').pop()}`
                     : null,
                 },
               })),
@@ -431,7 +431,7 @@ const Chat = ({ meetingId }) => {
                       (() => {
                         const displayUrl = msg.fileUrl.startsWith('blob:')
                           ? msg.fileUrl                               // blob URL
-                          : `http://localhost:5000${msg.fileUrl}`;    // server URL
+                          : `https://192.168.208.113:5000${msg.fileUrl}`;    // server URL
 
                         return (
                           <a
@@ -451,7 +451,7 @@ const Chat = ({ meetingId }) => {
                     ) : (
                       // GENERIC FILE
                     <a
-                      href={`http://localhost:5000${msg.fileUrl}`}
+                      href={`https://192.168.208.113:5000${msg.fileUrl}`}
                       download={msg.fileName}
                       className="
                         flex items-center space-x-3
@@ -639,19 +639,33 @@ const Chat = ({ meetingId }) => {
         <div ref={bottomRef} />
       </div>
 
-      <div className="relative flex items-center gap-3">
-        <input
-          type="text"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message..."
-          className={`flex-1 p-3 pr-12 rounded-lg focus:outline-none transition-colors ${
-            darkMode
-              ? 'bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500'
-              : 'bg-gray-100 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-300'
-          }`}
-          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-        />
+      
+      <div className="relative flex items-center gap-2 w-full">
+        <div className="relative flex-1 max-w-[100%]">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type your message..."
+            className={`w-full pr-10 p-2 rounded-lg text-sm focus:outline-none transition-colors ${
+              darkMode
+                ? 'bg-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500'
+                : 'bg-gray-100 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-300'
+            }`}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          />
+
+          {/* Attachment icon */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current.click()}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-[#03055B] hover:text-white rounded-full transition"
+            title="Attach file"
+          >
+            <ImAttachment size={18} className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
+          </button>
+        </div>
+
         <input
           type="file"
           accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/epub+zip"
@@ -660,26 +674,17 @@ const Chat = ({ meetingId }) => {
           onChange={handleFileChange}
         />
 
-        {/* Attachment icon */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current.click()}
-          className="absolute right-20 top-1/2 transform -translate-y-1/2 p-2 cursor-pointer hover:bg-[#03055B] hover:text-white rounded-full transition"
-          title="Attach file"
-        >
-          <ImAttachment size={25} className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}/>
-        </button>
-
+        {/* Send Button */}
         <button
           onClick={handleSendMessage}
-          className={`p-3 rounded-full transition cursor-pointer ${
+          className={`p-2 rounded-full transition cursor-pointer ${
             darkMode
               ? 'bg-[#00013d] hover:bg-[#03055B]'
               : 'bg-[#00013d] hover:bg-[#03055B]'
           } text-white`}
           title="Send message"
         >
-          <IoIosSend size={20} />
+          <IoIosSend size={16} />
         </button>
       </div>
     </div>

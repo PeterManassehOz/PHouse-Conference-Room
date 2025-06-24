@@ -6,11 +6,7 @@ const { userAuthMiddleware } = require('../middleware/userAuthMiddleware');
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
-router.post(
-  '/videos', userAuthMiddleware,
-  upload.single('recording'),
-  uploadVideo
-);
+router.post('/videos', userAuthMiddleware, upload.single('recording'), uploadVideo);
 
 router.get('/videos', userAuthMiddleware, listVideos);
 router.get('/videos/:id/stream', userAuthMiddleware, streamVideo);

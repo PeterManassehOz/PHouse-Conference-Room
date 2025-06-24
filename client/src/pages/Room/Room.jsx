@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState,  useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useState,  useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import VideoPlayer from '../../components/VideoPlayer/VideoPlayer';
@@ -11,6 +11,8 @@ import { useUploadVideoMutation } from '../../redux/videosUploadApi/videoUploadA
 import { useJoinMeetingMutation, useGetMeetingByIdQuery, useLeaveMeetingMutation } from '../../redux/meetingApi/meetingApi';
 import { useGetUserProfileQuery, useGetUserSettingsQuery,  } from '../../redux/profileAuthApi/profileAuthApi';
 import Spinner from '../../components/Spinner/Spinner';
+import { Device } from 'mediasoup-client';
+
 
 
 
@@ -18,6 +20,7 @@ import Spinner from '../../components/Spinner/Spinner';
 
 
 const Room = () => {
+
   const { id: roomId } = useParams();
   const { data: settings = {}, isLoading: settingsLoading } = useGetUserSettingsQuery();
   const [uploadVideo] = useUploadVideoMutation();
@@ -42,11 +45,38 @@ const Room = () => {
   const linkInputRef = useRef(null);
   const [meetingReactions, setMeetingReactions] = useState([]);
   const [activeSpeakerId, setActiveSpeakerId] = useState(null);
+  const [subscriptions, setSubscriptions] = useState(new Set([meId]));
+  const [peers, setPeers] = useState([]); // [{ userId, stream }]
+  const [selectedCamera, setSelectedCamera] = useState("");
+  const [selectedMicrophone, setSelectedMicrophone] = useState("");
+  console.log('Selected Microphone:', selectedMicrophone);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const [hasLocalStream, setHasLocalStream] = useState(false);
+  const [isMuted, setIsMuted]                 = useState(false);
+  const [isVideoOff, setIsVideoOff]           = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const deviceRef = useRef(null);
+  const sendTransportRef = useRef(null);
+  const recvTransportRef = useRef(null);
+  const producersRef     = useRef({}); // kind → producer
+  const consumersRef     = useRef({}); // producerId → consumer streams
+  const subscriptionsRef = useRef(subscriptions);
+  const producerUserToProducerIds = useRef(new Map());
+  const MAX_ACTIVE = 6; // Max active speakers allowed
+  const usernamesRef = useRef(new Map());
+  const peerStreamsRef = useRef(new Map());
 
+  
 
   console.log('Meeting:', meeting);
 
 
+  
   const copyLinkToClipboard = () => {
     const text = roomLink;
     if (navigator.clipboard && window.isSecureContext) {
@@ -85,23 +115,74 @@ const Room = () => {
   };
 
 
-  const peerConnections = useRef({}); // userId -> RTCPeerConnection
-  const [peers, setPeers] = useState([]); // [{ userId, stream }]
-  const [selectedCamera, setSelectedCamera] = useState("");
-  const [selectedMicrophone, setSelectedMicrophone] = useState("");
-  console.log('Selected Microphone:', selectedMicrophone);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const recorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const localStreamRef = useRef(null);
-  const screenStreamRef = useRef(null);
-  const [hasLocalStream, setHasLocalStream] = useState(false);
-  const [isMuted, setIsMuted]                 = useState(false);
-  const [isVideoOff, setIsVideoOff]           = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
+   // ------------ Utility: addPeer / removePeer ------------
+    const addPeer = useCallback((userId, stream, username) => {
+      console.log('🔄 addPeer called with', { userId, stream, username });
+      setPeers(prev => {
+      console.log('[Room.jsx] ⏳ Before adding peer:', prev);
+      let next;
+      if (prev.some(p => p.userId === userId)) {
+        next = prev.map(p =>
+          p.userId === userId
+            ? { ...p, stream, username: username ?? p.username }
+            : p
+        );
+      } else {
+        next = [...prev, { userId, stream, username }];
+      }
+      console.log('[Room.jsx] ✅ After adding peer :', next);
+      return next;
+    });
 
- //meeting reactions
+    // Speech detection (unchanged)
+    if (stream && stream.getAudioTracks().length > 0) {
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+
+      const detect = () => {
+        analyser.getByteFrequencyData(data);
+        const volume = data.reduce((a, b) => a + b) / data.length;
+        if (volume > 10) {
+          setActiveSpeakerId(userId);
+        }
+        requestAnimationFrame(detect);
+      };
+      detect();
+    }
+  }, []);
+
+  const removePeer = useCallback((userId) => {
+  // 1) Remove this user’s tile from the UI
+  setPeers(prev => prev.filter(p => p.userId !== userId));
+
+  // 2) Close every consumer that belongs to userId (via our Map)
+  const setOfProducerIds = producerUserToProducerIds.current.get(userId);
+  if (setOfProducerIds) {
+    for (const pid of setOfProducerIds) {
+      const consumer = consumersRef.current[pid];
+      if (consumer) {
+        consumer.close();
+        delete consumersRef.current[pid];
+      }
+    }
+    producerUserToProducerIds.current.delete(userId);
+  }
+
+  // 3) Also remove from subscriptions if present
+  setSubscriptions(prev => {
+    const next = new Set(prev);
+    next.delete(userId);
+    return next;
+  });
+  }, []);
+
+
+  
+
+  // ------------ Meeting / Reactive Handlers ------------
   useEffect(() => {
   socket.on('meeting-reaction', reaction => {
     // add to local list (so you can animate/display)
@@ -114,6 +195,7 @@ const Room = () => {
 
   socket.on('user-left-meeting', ({ username }) => {
     toast.info(`${username} has left the meeting`);
+    removePeer(username);
   });
   
   return () => { 
@@ -121,10 +203,10 @@ const Room = () => {
     socket.off('user-joined-meeting');
     socket.off('user-left-meeting');
   };
-  }, []);
+  }, [removePeer]);
 
 
-   // apply defaults once settings arrive
+  // ------------ Apply default settings (mute/video-off) ------------
   useEffect(() => {
     if (!settingsLoading) {
       setIsMuted(settings.autoMute);
@@ -133,8 +215,7 @@ const Room = () => {
     }
   }, [settings, settingsLoading]);
 
-  const hasLeftRef = useRef(false);
-  
+  const hasLeftRef = useRef(false); 
   const doLeave = useCallback(() => {
     if (hasLeftRef.current || !socket.connected) return;
     if (!userProfile) return; 
@@ -147,22 +228,27 @@ const Room = () => {
     });
   }, [roomId, meId, userProfile]);
 
-
-
   const leaveMeeting = useCallback(async () => {
-     // 1) Remove from socket room
-     doLeave();
-
-    // 2) Remove from the DB participants array
-      try {
+    doLeave();
+    try {
       await leaveMeetingApi(roomId).unwrap();
     } catch (err) {
       console.error('Failed to leave meeting:', err);
     }
-
-    // 3) Clean up WebRTC and navigate away
-    Object.values(peerConnections.current).forEach(pc => pc.close());
+    // Clean up local
     localStreamRef.current?.getTracks().forEach(t => t.stop());
+    setHasLocalStream(false);
+
+    // Close all producers & consumers
+    Object.values(producersRef.current).forEach(p => p.close());
+    Object.values(consumersRef.current).forEach(c => c.close());
+    producersRef.current = {};
+    consumersRef.current = {};
+
+    // Close transports
+    sendTransportRef.current?.close();
+    recvTransportRef.current?.close();
+
     socket.disconnect();
     localStorage.removeItem('hostId');
     navigate('/');
@@ -194,7 +280,10 @@ const Room = () => {
       track.enabled = !isVideoOff;
     });
   }, [isVideoOff]);
-
+  
+  useEffect(() => {
+  console.log('isVideoOff:', isVideoOff);
+  }, [isVideoOff]);
 
   // Start Recording (Separate Stream)
   const startRecording = useCallback(async () => {
@@ -243,187 +332,48 @@ const Room = () => {
     }
   }, [hasLocalStream, settings.autoRecord, isRecording, startRecording]);
 
-
-  // Using useMemo to ensure iceServers is stable
-  const iceServers = useMemo(() => ({
-    iceServers: [
-      {
-        urls: "stun:stun.l.google.com:19302", // Google's public STUN server
-      },
-    ],
-  }), []);
-
-
-
-  const addPeer = useCallback((userId, stream, username) => {
-    setPeers(prev => {
-      // if we already have this id, update its stream
-      if (prev.some(p => p.userId === userId)) {
-        return prev.map(p =>
-          p.userId === userId
-            ? { ...p, stream, username: username ?? p.username }
-            : p
-        );
-      }
-      // otherwise append a new entry
-      return [ ...prev, { userId, stream, username } ];
-    });
-
-    // (speech-detection stays the same)
-     if (stream && stream.getAudioTracks().length > 0) {
-    detectSpeech(stream, isSpeaking => {
-      if (isSpeaking) setActiveSpeakerId(userId);
-    });
-   }
-  }, []);
-
-
-  const removePeer = useCallback((userId) => {
-    setPeers(prev => prev.filter(p => p.userId !== userId));
-    peerConnections.current[userId]?.close();
-    delete peerConnections.current[userId];
-  }, []);
-
-
-   const stopScreenShare = useCallback(() => {
-  // 1) stop the actual screen tracks
-  if (screenStreamRef.current) {
-    screenStreamRef.current.getTracks().forEach(t => t.stop());
-    screenStreamRef.current = null;
-  }
-
-  // 2) restore camera
-  const camStream = localStreamRef.current;
-  if (!camStream) {
-    console.warn("No local camera stream to restore");
+  // ---------- Screen Sharing: startScreenShare / stopScreenShare  ----------
+   // ------------ Screen Sharing with Mediasoup ------------
+  const stopScreenShare = useCallback(() => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(t => t.stop());
+      screenStreamRef.current = null;
+    }
     setIsScreenSharing(false);
-    return;
-  }
-  const camTrack = camStream.getVideoTracks()[0];
-  if (camTrack) {
-    Object.values(peerConnections.current).forEach(pc => {
-      const sender = pc.getSenders().find(s => s.track.kind === 'video');
-      if (sender) sender.replaceTrack(camTrack);
-    });
-  }
 
-  addPeer(meId, camStream, userProfile?.username || "");
-  setIsScreenSharing(false);
-  toast.info('Stopped screen share');
-   }, [addPeer, meId, userProfile?.username]);
+    // Re‐produce camera track on sendTransport
+    const camStream = localStreamRef.current;
+    if (!camStream) return;
+    const camTrack = camStream.getVideoTracks()[0];
+    if (camTrack && producersRef.current.video) {
+      producersRef.current.video.replaceTrack({ track: camTrack });
+    }
+  }, []);
 
-
-
-    const startScreenShare = useCallback(async () => {
+  const startScreenShare = useCallback(async () => {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      screenStreamRef.current = screenStream;
-
-      const screenTrack = screenStream.getVideoTracks()[0];
-      Object.values(peerConnections.current).forEach(pc => {
-        const sender = pc.getSenders().find(s => s.track.kind === 'video');
-        if (sender) sender.replaceTrack(screenTrack);
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true
       });
+      screenStreamRef.current = screenStream;
+      const screenTrack = screenStream.getVideoTracks()[0];
+      if (producersRef.current.video) {
+        await producersRef.current.video.replaceTrack({ track: screenTrack });
+        setIsScreenSharing(true);
 
-      addPeer(meId, screenStream, userProfile?.username);
-      setIsScreenSharing(true);
-      toast.success('Screen sharing started');
-
-      // hook up the native stop events to our stop handler
-      screenTrack.onended   = stopScreenShare;
-      screenStream.oninactive = stopScreenShare;
+        screenTrack.onended = () => {
+          stopScreenShare();
+        };
+        screenStream.oninactive = () => {
+          stopScreenShare();
+        };
+      }
     } catch (err) {
       console.error('Screen share failed', err);
       toast.error('Screen share failed');
     }
-  }, [addPeer, meId, userProfile?.username, stopScreenShare]);
-
+  }, [stopScreenShare]);
  
-
-  const waitingPeers = useRef([]);  // will hold [{ otherId, initiator }]
-
-  // Updated setupConnection:
-  const setupConnection = useCallback((otherId, initiator) => {
-  const localStream = localStreamRef.current;
-  if (!localStream) {
-    // we don't have media yet → queue it
-    waitingPeers.current.push({ otherId, initiator });
-    return;
-  }
-
-    // ← if we’ve already built a PC for this user, do nothing
-  if (peerConnections.current[otherId]) {
-    console.log(`skipping duplicate setup for ${otherId}`);
-    return;
-  }
-
-  console.log(`setupConnection(${otherId}, initiator=${initiator})`);
-  // 1) create RTCPeerConnection and store it
-  const pc = new RTCPeerConnection(iceServers);
-  peerConnections.current[otherId] = pc;
-
-  // 2) add your local tracks to the connection
-  localStream.getTracks().forEach(track => {
-    pc.addTrack(track, localStream);
-  });
-
-  // 3) when remote tracks arrive, add to peers
-  pc.ontrack = ({ streams: [stream] }) => addPeer(otherId, stream);
-
-  // 4) ICE candidates → signal via socket
-  pc.onicecandidate = e => {
-    if (e.candidate) {
-      console.log('→ ice-candidate', { to: otherId, from: meId });
-      socket.emit('ice-candidate', {
-        roomId,
-        to: otherId,
-        from: meId,
-        candidate: e.candidate
-      });
-    }
-  };
-
-  // 5) if this client is the initiator, make & send an offer
-  if (initiator) {
-    pc.createOffer()
-      .then(async (offer) => {
-        await pc.setLocalDescription(offer).then(() => offer);
-      })
-      .then(offer => {
-        console.log('→ offer', { to: otherId, from: meId });
-        socket.emit('offer', {
-          roomId,
-          to: otherId,
-          from: meId,
-          sdp: offer
-        });
-      })
-      .catch(console.error);
-  }
- }, [iceServers, roomId, addPeer, meId]);
-
-
-  const detectSpeech = (stream, onSpeaking) => {
-  if (!stream || !stream.getAudioTracks().length) {
-    console.warn('No audio stream available for speech detection');
-    return;
-  }
-  const audioContext = new AudioContext();
-  const analyser = audioContext.createAnalyser();
-  const source = audioContext.createMediaStreamSource(stream);
-  const data = new Uint8Array(analyser.frequencyBinCount);
-
-  source.connect(analyser);
-
-  const detect = () => {
-    analyser.getByteFrequencyData(data);
-    const volume = data.reduce((a, b) => a + b) / data.length;
-    onSpeaking(volume > 10); // You may need to fine-tune the threshold
-    requestAnimationFrame(detect);
-  };
-
-  detect();
-  };
 
   
     // Log peers whenever it changes
@@ -431,11 +381,11 @@ const Room = () => {
       console.log('Peers:', peers);
     }, [peers]);
 
-   
-  const hasInitRef = useRef(false);
+    
 
-  // at the top of Room.jsx, above your media/socket effect:
-  const hasJoinedDB = useRef(false);
+   
+    //const hasInitRef = useRef(false);
+    const hasJoinedDB = useRef(false);
 
     useEffect(() => {
       if (
@@ -460,194 +410,281 @@ const Room = () => {
       joinMeeting
     ]);
 
- 
-   // Main effect to handle socket connections, media setup, etc.
+    // Whenever `subscriptions` changes, let the server know:
     useEffect(() => {
-      // 0️⃣ Don’t run until your profile & ID are loaded
-      if (userProfileLoading || !userProfile || !meId) return;
+      if (!meId) return;
+        const debounce = setTimeout(() => {
+        console.log('[Room.jsx] 📡 Emitting update‑subscriptions →', Array.from(subscriptions));
+        socket.emit('update-subscriptions', {
+          meetingId: roomId,
+          newSubscriptions: Array.from(subscriptions)
+        });
+      }, 1000); // throttle every 1s
 
-      // 1️⃣ Local refs & buffers
-      const pcs               = peerConnections.current;
-      const pendingCandidates = {};
-      const waitList          = waitingPeers.current;
+      return () => clearTimeout(debounce);
+    }, [roomId, meId, subscriptions]);
 
-      // 2️⃣ Tear down any old socket handlers
-      socket.off('existing-peers');
-      socket.off('user-joined-meeting');
-      socket.off('offer');
-      socket.off('answer');
-      socket.off('ice-candidate');
-      socket.off('user-left-meeting');
-      socket.off('meeting-ended');
 
-      // 3️⃣ Register socket handlers
+    useEffect(() => {
+    subscriptionsRef.current = subscriptions;
+    }, [subscriptions]);
+ 
+     // ------------ MEDIASOUP CONNECTION EFFECT ------------
+    
+    useEffect(() => {
+    if (userProfileLoading || !userProfile || !meId) return;
+    let mounted = true;
 
-      // • Existing peers → seed & answer
-      socket.on('existing-peers', peersList => {
-        console.log('Existing peers:', peersList);
-        peersList.forEach(({ userId, username }) => {
-          if (userId === meId) return;
-          addPeer(userId, null, username);
-           // 🆕 If local stream isn't ready yet, queue this peer
-            if (!localStreamRef.current) {
-              waitingPeers.current.push({ otherId: userId, initiator: false });
-            } else {
-              setupConnection(userId, false);
-            }
+    // keep track of which producer belongs to which user
+    const producerIdToUserRef = new Map();
+
+    socket.emit('join-meeting-room', { meetingId: roomId, userId: meId, username: userProfile.username });
+
+    socket.on('existing-peers', peers => {
+      peers.forEach(p => usernamesRef.current.set(p.userId, p.username));
+      const allIds = peers.map(p => p.userId).concat(meId);
+      const next = new Set(allIds);
+      subscriptionsRef.current = next;
+      setSubscriptions(next);
+      socket.emit('update-subscriptions', { meetingId: roomId, newSubscriptions: Array.from(next) });
+      socket.emit('get-existing-producers', { meetingId: roomId });
+    });
+
+    socket.on('user-joined-meeting', ({ userId: newUserId, username }) => {
+      usernamesRef.current.set(newUserId, username);
+      setSubscriptions(prev => {
+        const next = new Set(prev).add(newUserId);
+        subscriptionsRef.current = next;
+        socket.emit('update-subscriptions', { meetingId: roomId, newSubscriptions: Array.from(next) });
+        socket.emit('get-existing-producers', { meetingId: roomId });
+        return next;
+      });
+    });
+
+    socket.on('router-rtp-capabilities', async ({ rtpCapabilities }) => {
+      if (!mounted) return;
+      deviceRef.current = new Device();
+      await deviceRef.current.load({ routerRtpCapabilities: rtpCapabilities });
+
+      socket.on('mediasoup-send-transport', async params => {
+        if (!mounted) return;
+        sendTransportRef.current = deviceRef.current.createSendTransport(params);
+        sendTransportRef.current.on('connect', ({ dtlsParameters }, cb) => {
+          socket.emit('mediasoup-connect-transport', { meetingId: roomId, userId: meId, transportId: sendTransportRef.current.id, dtlsParameters });
+          socket.once('transport-connected', cb);
+        });
+        sendTransportRef.current.on('produce', async ({ kind, rtpParameters }, cb) => {
+          socket.emit('mediasoup-produce', { meetingId: roomId, userId: meId, kind, rtpParameters });
+          socket.once('produced', ({ producerId }) => cb({ id: producerId }));
+        });
+
+        // local media
+        let camStream;
+        try {
+          camStream = await navigator.mediaDevices.getUserMedia({
+            video: selectedCamera ? { deviceId: { exact: selectedCamera } } : true,
+            audio: selectedMicrophone ? { deviceId: { exact: selectedMicrophone } } : true
+          });
+          console.log('Local video track enabled:', camStream.getVideoTracks()[0].enabled);
+        } catch (err) {
+          console.error('getUserMedia failed:', err);
+          toast.error('Unable to access camera/microphone');
+          return;
+        }
+
+        localStreamRef.current = camStream;
+        setHasLocalStream(true);
+        addPeer(meId, camStream, userProfile.username);
+
+        for (const track of camStream.getTracks()) {
+          console.log(`[Produce] Sending track:`, track.kind, track.enabled, track.muted);
+          const producer = await sendTransportRef.current.produce({ track });
+          producersRef.current[track.kind] = producer;
+        }
+      });
+    });
+
+    socket.on('mediasoup-recv-transport', params => {
+      if (!mounted || recvTransportRef.current) return;
+      recvTransportRef.current = deviceRef.current.createRecvTransport(params);
+      recvTransportRef.current.on('connect', ({ dtlsParameters }, cb) => {
+        console.log('[recvTransport] Connecting with DTLS');
+        socket.emit('mediasoup-connect-transport', { meetingId: roomId, userId: meId, transportId: recvTransportRef.current.id, dtlsParameters });
+        socket.once('transport-connected', () => {
+        console.log('[recvTransport] Connected');
+          cb();
         });
       });
+    });
 
-      // • New peer joined → seed & offer
-      socket.on('user-joined-meeting', ({ userId, username }) => {
-        console.log('User joined:', userId, username);
-        if (userId === meId) return;
-        toast.info(`${username} joined`);
-        addPeer(userId, null, username);
-        if (!localStreamRef.current) {
-            waitingPeers.current.push({ otherId: userId, initiator: true });
-          } else {
-            setupConnection(userId, true);
-          }
+    // once a new producer is announced, record which user it belongs to,
+    // then request to consume it
+    socket.on('new-producer', ({ producerId, producerUserId }) => {
+      if (!mounted || consumersRef.current[producerId]) return;
+      if (!subscriptionsRef.current.has(producerUserId)) return;
+
+      // record mapping
+      producerIdToUserRef.set(producerId, producerUserId);
+
+      socket.emit('mediasoup-consume', {
+        meetingId: roomId,
+        userId: meId,
+        producerId,
+        rtpCapabilities: deviceRef.current.rtpCapabilities
       });
+    });
 
-      // • Offer → answer + replay early ICEs
-      socket.on('offer', async ({ from, sdp }) => {
-        console.log('Received offer from', from);
-        /*const pc = pcs[from];
-        if (!pc) return;*/
-        
-        let pc = pcs[from];
-        if (!pc) {
-          setupConnection(from, false); // false = not initiator
-          pc = pcs[from]; // retrieve it after creating
-        }
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('answer', { roomId, to: from, from: meId, sdp: answer });
+    // handle the server's consumed event and attach the track to the right peer
+    const onConsumed = async ({ producerId: pid, id, kind, rtpParameters }) => {
+    if (!mounted || consumersRef.current[pid]) return;
 
-        if (pendingCandidates[from]) {
-          for (const c of pendingCandidates[from]) {
-            await pc.addIceCandidate(new RTCIceCandidate(c));
-          }
-          pendingCandidates[from] = [];
-        }
-      });
+    const consumer = await recvTransportRef.current.consume({
+      id,
+      producerId: pid,
+      kind,
+      rtpParameters,
+      paused: false
+    });
 
-      // • Answer → finish handshake + replay ICEs
-      socket.on('answer', async ({ from, sdp }) => {
-        console.log('Received answer from', from);
-        const pc = pcs[from];
-        if (!pc) return;
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        if (pendingCandidates[from]) {
-          for (const c of pendingCandidates[from]) {
-            await pc.addIceCandidate(new RTCIceCandidate(c));
-          }
-          pendingCandidates[from] = [];
-        }
-      });
+    consumer.pause();
+    await consumer.resume();
+    console.log(`[consume] Received track for ${kind}`, {
+    enabled: consumer.track.enabled,
+    muted: consumer.track.muted,
+    readyState: consumer.track.readyState,
+    });
 
-      // • ICE candidate → add or queue
-      socket.on('ice-candidate', ({ from, candidate }) => {
-        console.log('Got ICE candidate from', from);
-        const pc = pcs[from];
-        if (pc) {
-          pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } else {
-          pendingCandidates[from] = pendingCandidates[from] || [];
-          pendingCandidates[from].push(candidate);
-        }
-      });
+    consumersRef.current[pid] = consumer;
 
-      // • Peer leaves or host ends meeting
-      socket.on('user-left-meeting', ({ userId }) => removePeer(userId));
-      socket.on('meeting-ended', () => {
-        toast.info('Meeting ended');
-        leaveMeeting();
-      });
+    const userId = producerIdToUserRef.get(pid);
+    if (!userId) return;
 
-      // 4️⃣ One-time media acquisition + socket join
-      if (!hasInitRef.current) {
-        hasInitRef.current = true;
+    let oldStream = peerStreamsRef.current.get(userId);
 
-        (async () => {
-          // a) get camera & mic
-          const camStream = await navigator.mediaDevices.getUserMedia({
-            video: selectedCamera
-              ? { deviceId: { exact: selectedCamera } }
-              : true,
-            audio: selectedMicrophone
-              ? { deviceId: { exact: selectedMicrophone } }
-              : true,
-          });
+    if (!oldStream) {
+      oldStream = new MediaStream([consumer.track]);
+    } else {
+      const existingTracks = oldStream.getTracks();
 
-          // b) save & preview local
-          localStreamRef.current = camStream;
-          setHasLocalStream(true);
-          addPeer(meId, camStream, userProfile.username);
+      // ✅ Filter out old tracks of the same kind
+      const filteredTracks = existingTracks.filter(t => t.kind !== consumer.track.kind);
 
-          // c) connect to any peers queued before local stream
-          waitList.forEach(({ otherId, initiator }) =>
-            setupConnection(otherId, initiator)
-          );
-          waitingPeers.current = [];
+      // ✅ Create new stream with fresh track + remaining non-conflicting ones
+      oldStream = new MediaStream([...filteredTracks, consumer.track]);
+    }
 
-          // d) now notify the server-side socket logic
-          socket.emit('join-meeting-room', {
-            meetingId: roomId,
-            userId:    meId,
-            username:  userProfile.username
-          });
-        })();
-      }
+    peerStreamsRef.current.set(userId, oldStream);
+    addPeer(userId, oldStream, usernamesRef.current.get(userId));
+    
+    console.log('[onConsumed] Final Stream Tracks:', oldStream.getTracks());
+  
+    console.log('STREAM CHECK', userId, oldStream.getVideoTracks());
+    };
 
-      // 5️⃣ Cleanup on unmount
-      return () => {
-        doLeave(); // emit leave-meeting-room
+    socket.on('consumed', onConsumed);
+    
 
-        // stop local tracks
-        localStreamRef.current?.getTracks().forEach(t => t.stop());
-        localStreamRef.current = null;
+    socket.on('user-left-meeting', ({ userId: leftId, username }) => {
+      removePeer(leftId);
+      toast.info(`${username} has left the meeting`);
+    });
 
-        // close all peer connections
-        Object.values(peerConnections.current).forEach(pc => pc.close());
-        peerConnections.current = {};
+    return () => {
+      mounted = false;
+      doLeave();
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      setHasLocalStream(false);
+      Object.values(producersRef.current).forEach(p => p.close());
+      Object.values(consumersRef.current).forEach(c => c.close());
+      sendTransportRef.current?.close();
+      recvTransportRef.current?.close();
 
-        // remove socket listeners
-        socket.off('existing-peers');
-        socket.off('user-joined-meeting');
-        socket.off('offer');
-        socket.off('answer');
-        socket.off('ice-candidate');
-        socket.off('user-left-meeting');
-        socket.off('meeting-ended');
-      };
-    }, [
-      roomId,
-      meId,
-      userProfile,
-      userProfileLoading,
-      selectedCamera,
-      selectedMicrophone,
-      addPeer,
-      setupConnection,
-      removePeer,
-      leaveMeeting,
-      doLeave
+      socket.off('existing-peers');
+      socket.off('user-joined-meeting');
+      socket.off('router-rtp-capabilities');
+      socket.off('mediasoup-send-transport');
+      socket.off('mediasoup-recv-transport');
+      socket.off('new-producer');
+      socket.off('consumed', onConsumed);
+      socket.off('user-left-meeting');
+    };
+  }, [
+    roomId,
+    meId,
+    userProfile,
+    userProfileLoading,
+    selectedCamera,
+    selectedMicrophone,
+    addPeer,
+    removePeer,
+    doLeave
     ]);
 
 
 
-  const activeSpeaker = peers.find(p => p.userId === activeSpeakerId);
-  console.log('Active Speaker:', activeSpeaker);
 
-  if (isLoading) {
+
+
+  // ─── Whenever activeSpeakerId changes, add them to subscriptions ──────────
+  // 1) Listen for server’s speaker event → setActiveSpeakerId
+  useEffect(() => {
+    const onServerSpeaker = ({ userId: newSpeakerId }) => {
+      if (newSpeakerId !== meId) {
+        setActiveSpeakerId(newSpeakerId);
+      }
+    };
+    socket.on('speaker-changed', onServerSpeaker);
+    return () => {
+      socket.off('speaker-changed', onServerSpeaker);
+    };
+  }, [meId]);
+
+  // 2) Eviction logic whenever activeSpeakerId changes
+  useEffect(() => {
+  if (!activeSpeakerId || activeSpeakerId === meId) return;
+
+  setSubscriptions(prev => {
+    if (prev.has(activeSpeakerId)) return prev;
+
+    const next = new Set(prev);
+    next.add(activeSpeakerId);
+
+    if (next.size > MAX_ACTIVE + 1) {
+      for (let u of next) {
+        if (u !== meId && u !== activeSpeakerId) {
+          next.delete(u);
+          // ─── Replace prefix‐based loop with Map‐based cleanup ───
+          const setOfProducerIds = producerUserToProducerIds.current.get(u);
+          if (setOfProducerIds) {
+            for (const pid of setOfProducerIds) {
+              const consumer = consumersRef.current[pid];
+              if (consumer) {
+                consumer.close();
+                delete consumersRef.current[pid];
+              }
+            }
+            producerUserToProducerIds.current.delete(u);
+          }
+          removePeer(u);
+          break;
+        }
+      }
+    }
+
+      return next;
+    });
+  }, [activeSpeakerId, meId, removePeer]);
+
+
+  if (isLoading || userProfileLoading || settingsLoading) {
     return <Spinner />;
   }
-  if (isError) {
-    return <p className="text-red-500 text-center">Error loading room.</p>;
+  
+  if (!meeting || isError) {
+  return <div className="text-center text-red-500 mt-10">Meeting not found or failed to load.</div>;
   }
+
+
 
 const videos = peers.map(p => ({
   userId:   p.userId,
@@ -698,8 +735,11 @@ const videos = peers.map(p => ({
 
       </div>
 
-        
-      {/*Video Grid and Reactions*/}
+
+
+
+  
+      {/*Video Grid and Reactions
       <div className="flex flex-col items-center w-full h-full p-4 bg-gray-100 dark:bg-gray-900 overflow-y-auto">
         <div 
           className="grid gap-4 w-full"
@@ -713,6 +753,21 @@ const videos = peers.map(p => ({
               userId={userId}
               label={label ?? 'Unknown'}
               isSpeaking={isSpeaking}
+              onPin={() => {
+                setSubscriptions(prev => {
+                  const next = new Set(prev);
+                  next.add(userId);
+                  return next;
+                });
+              }}
+              onUnpin={() => {
+                setSubscriptions(prev => {
+                  const next = new Set(prev);
+                  next.delete(userId);
+                  return next;
+                });
+                // Also close their consumer and removePeer(userId)
+              }}
             />
           ))}
         </div>
@@ -741,7 +796,77 @@ const videos = peers.map(p => ({
                   {r.emoji}
                 </span>
         ))}
+      </div>*/}
+
+      <div className="flex flex-col items-center w-full h-full p-4 bg-gray-100 dark:bg-gray-900 overflow-y-auto">
+        <div
+          className="grid gap-4 w-full"
+          style={{ gridTemplateColumns: `repeat(${videos.length}, minmax(0, 1fr))` }}
+        >
+          {videos.map(({ userId, stream, isLocal, label, isSpeaking }) => (
+            <div key={userId} className="relative">
+              <VideoPlayer
+                key={userId}
+                stream={stream ?? null}
+                isLocal={isLocal}
+                userId={userId}
+                label={label ?? 'Unknown'}
+                isSpeaking={isSpeaking}
+                onPin={() => {
+                  setSubscriptions(prev => {
+                    const next = new Set(prev);
+                    next.add(userId);
+                    return next;
+                  });
+                }}
+                onUnpin={() => {
+                  setSubscriptions(prev => {
+                    const next = new Set(prev);
+                    next.delete(userId);
+                    return next;
+                  });
+                  // Also close their consumer and removePeer(userId)
+                }}
+              />
+              {/* Hidden audio for remote so their sound plays */}
+              {!isLocal && stream && (
+                <audio
+                  ref={el => {
+                    if (el) el.srcObject = stream;
+                  }}
+                  autoPlay
+                  className="hidden"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {hasLocalStream && (
+          <audio
+            ref={el => {
+              if (el) el.srcObject = localStreamRef.current;
+            }}
+            autoPlay
+            className="hidden"
+            controls
+          />
+        )}
+
+        {meetingReactions.map((r, i) => (
+          <span
+            key={i}
+            className="absolute animate-float text-3xl"
+            style={{
+              top: `${20 + i * 10}%`,
+              left: `${50 + (i % 2 ? -10 : 10)}%`
+            }}
+          >
+            {r.emoji}
+          </span>
+        ))}
       </div>
+
         
 
       {/* Chat & Controls */}
