@@ -28,6 +28,7 @@ app.use((req, res, next) => {
     'http://localhost:5173',
     'http://localhost:5174',
     'https://p-house-conference-room.vercel.app',
+    'https://phouse-conference-room-server.onrender.com/'
   ];
   if (allowed.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);

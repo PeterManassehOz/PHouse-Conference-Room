@@ -20,7 +20,7 @@ const resolveImage = (imgPath) => {
   if (!imgPath) return '/profileIconBrown.jpeg';
   if (imgPath.startsWith('http')) return imgPath;
   const filename = imgPath.split('/').pop();
-  return `https://192.168.208.113:5000/uploads/${filename}`;
+  return `https://phouse-conference-room-server.onrender.com/uploads/${filename}`;
 };
 
 // Format timestamp for display
@@ -149,7 +149,7 @@ const Chat = ({ meetingId }) => {
                 user: {
                   ...r.user,
                   image: r.user.image
-                    ? `https://192.168.208.113:5000/uploads/${r.user.image.split('/').pop()}`
+                    ? `https://phouse-conference-room-server.onrender.com/uploads/${r.user.image.split('/').pop()}`
                     : null,
                 },
               })),
@@ -431,7 +431,7 @@ const Chat = ({ meetingId }) => {
                       (() => {
                         const displayUrl = msg.fileUrl.startsWith('blob:')
                           ? msg.fileUrl                               // blob URL
-                          : `https://192.168.208.113:5000${msg.fileUrl}`;    // server URL
+                          : `https://phouse-conference-room-server.onrender.com${msg.fileUrl}`;    // server URL
 
                         return (
                           <a
@@ -451,7 +451,7 @@ const Chat = ({ meetingId }) => {
                     ) : (
                       // GENERIC FILE
                     <a
-                      href={`https://192.168.208.113:5000${msg.fileUrl}`}
+                      href={`https://phouse-conference-room-server.onrender.com${msg.fileUrl}`}
                       download={msg.fileName}
                       className="
                         flex items-center space-x-3
