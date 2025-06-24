@@ -8,6 +8,8 @@ import { toast } from "react-toastify";
 import { useUpdateProfileMutation, useGetUserProfileQuery } from "../../redux/profileAuthApi/profileAuthApi";
 import { useGetUpcomingQuery } from "../../redux/meetingApi/meetingApi";
 import Spinner from "../Spinner/Spinner";
+import { Link } from 'react-router-dom';
+
 
 
 
@@ -132,17 +134,25 @@ const Profile = () => {
 
   
   if (profileLoading) return <Spinner />;
-  
-  if (isError) {
+
+if (isError) {
   console.error(error);
   return (
     <div
-      className="min-h-screen bg-cover bg-center flex items-center justify-start"
+      className="min-h-screen bg-cover bg-center flex items-center justify-start rounded-md "
       style={{ backgroundImage: "url('/Authenticate.jpg')" }}
     >
-      <p className="text-white font-bold text-2xl sm:text-4xl md:text-6xl bg-black/50 p-4 sm:p-6 m-6 sm:m-20 rounded-md max-w-sm sm:max-w-md">
-        Get authenticated to use Quorum.
-      </p>
+      <div className="m-6 sm:m-20">
+        <p className="text-white font-bold text-2xl sm:text-4xl md:text-6xl bg-black/50 p-4 sm:p-6 rounded-md max-w-sm sm:max-w-md">
+          Get authenticated to use Quorum.
+        </p>
+
+        <Link to="/login">
+          <button className="mt-10 bg-[#00013d] text-white text-xl px-3 py-5 rounded-md hover:bg-[#03055B] transition cursor-pointer">
+            Go to Login
+          </button>
+        </Link>
+      </div>
     </div>
   );
 }
