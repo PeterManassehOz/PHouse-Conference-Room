@@ -5,7 +5,7 @@ import io from 'socket.io-client';
 const token = localStorage.getItem('token');
 console.log('✅ [socket.js] connecting with token:', token);
 
-const socket = io('https://192.168.121.113:5000', {
+const socket = io('https://phouse-conference-room-server.onrender.com', {
   transports: ['websocket'],
   auth: {token}
 });
