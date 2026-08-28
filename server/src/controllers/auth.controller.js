@@ -53,6 +53,8 @@ const registerUser = async (req, res) => {
     user.password = hashedPassword;
     await user.save();
 
+    await sendEmailOtp(user.email);
+
     res.status(201).json({
       message: "Registered! Please verify your email.",
       needsVerification: true,

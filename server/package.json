@@ -27,5 +27,8 @@
     "node-schedule": "^2.1.1",
     "nodemailer": "^7.0.3",
     "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
